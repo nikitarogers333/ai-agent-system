@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title id="page-title">Terminal</title>
+<link rel="stylesheet" href="/vendor/xterm.css">
+<script src="/vendor/xterm.js"></script>
+<script src="/vendor/xterm-addon-fit.js"></script>
+<script src="/vendor/xterm-addon-web-links.js"></script>
+<style>
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#0d0d0d; -webkit-user-select:none; user-select:none; }
+  #terminal-wrap { touch-action:none; }
+  #app { position:fixed; top:0; left:0; right:0; bottom:0; display:flex; flex-direction:column; background:#0d0d0d; }
+  #terminal-wrap { flex:1; min-height:0; overflow:hidden; padding:4px 4px 0 4px; position:relative; }
+
+  /* Right-side drag scrollbar */
+  #scroll-track       { position:absolute; right:0; top:4px; bottom:0; width:50%; z-index:20; pointer-events:auto; }
+  #scroll-track-left  { position:absolute; left:0;  top:4px; bottom:0; width:50%; z-index:20; pointer-events:auto; }
+  @media (pointer:fine) {
+    #scroll-track, #scroll-track-left { pointer-events:none; }
+  }
+  #scroll-thumb, #scroll-thumb-left { position:absolute; width:4px; border-radius:3px; min-height:28px; touch-action:none; top:0; will-change:transform; }
+  #scroll-thumb       { right:3px; background:transparent; }
+  #scroll-thumb-left  { left:0; width:22px; background:transparent; }
+  #terminal-wrap .xterm { height:100%; }
+
+  /* Single toolbar */
+  #kb-bar { display:none; flex-shrink:0; align-items:center; justify-content:space-evenly;
+    height:44px; background:#0d0d0d; border-top:none;
+    touch-action:manipulation; padding:0 4px; }
+  #kb-bar.visible { display:flex; }
+
+  .kb-btn { background:none; border:none; color:#fff; height:32px;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    -webkit-tap-highlight-color:transparent;
+    flex:1; max-width:48px; font-size:12px; padding:0; }
+  .kb-btn:active { color:#fff; }
+
+
+  #btn-esc    { max-width:42px; }
+
+  /* Paste bar */
+  #paste-overlay { display:none; position:fixed; left:0; right:0; bottom:0; z-index:200;
+    background:#0d0d0d; padding:8px 8px 10px; -webkit-user-select:text; user-select:text; }
+  #paste-overlay.visible { display:flex; align-items:flex-end; gap:8px; }
+  #paste-area { flex:1; background:#0d0d0d; border:none; border-radius:0;
+    color:#e8e8e8; font-family:monospace; font-size:14px; padding:6px 4px; resize:none; outline:none;
+    -webkit-user-select:text; user-select:text; overflow-y:hidden; max-height:none; }
+  #paste-send-btn { width:32px; height:32px; flex-shrink:0; background:#98c379; border:none;
+    color:#fff; border-radius:50%; font-size:16px; line-height:1; cursor:pointer;
+    display:none; align-items:center; justify-content:center; padding:0; margin-bottom:2px; }
+
+  /* Rename popup removed -- uses native iOS dialogs now */
+
+  /* Copy modal */
+  .modal-overlay { display:none; position:fixed; inset:0; z-index:200;
+    background:rgba(0,0,0,0.75); align-items:center; justify-content:center; }
+  .modal-overlay.visible { display:flex; }
+  .modal-box { width:100%; height:100%; max-width:none; background:#0d0d0d; border:none;
+    border-radius:0; padding:8px; display:flex; flex-direction:column; gap:8px; }
+  .modal-box h3 { color:#555; font-size:11px; font-family:monospace; letter-spacing:0.06em; flex-shrink:0; }
+  .modal-textarea { flex:1; min-height:0; width:100%; background:#0d0d0d; border:none;
+    color:#e8e8e8; font-family:monospace; font-size:13px; padding:4px; resize:none; outline:none;
+    -webkit-user-select:text; user-select:text; }
+  .btn-primary   { background:#00e5ff; color:#000; font-weight:bold; }
+  .btn-secondary { background:#2a2a2a; color:#aaa; }
+
+  /* Desktop: only show first 3 toolbar icons; extra padding for paste bar */
+  @media (pointer:fine) {
+    #btn-up, #btn-down, #btn-esc { display:none !important; }
+    #terminal-wrap { padding-bottom: 44px; }
+  }
+
+  /* Toast notification */
+  #toast { position:fixed; bottom:100px; left:50%; transform:translateX(-50%);
+    background:#1e2a1e; color:#5dbb5d; border:1px solid #2e4a2e;
+    padding:7px 16px; border-radius:20px; font-size:12px; font-family:monospace;
+    opacity:0; transition:opacity .2s; pointer-events:none; z-index:500; white-space:nowrap; }
+  #toast.show { opacity:1; }
+  #toast.error { background:#2a1e1e; color:#e06c75; border-color:#4a2e2e; }
+
+  /* Floating scroll-to-bottom */
+  #btn-scroll-float { display:none; position:fixed; left:50%; transform:translateX(-50%); width:52px; height:52px;
+    border-radius:50%; background:transparent; border:none; color:#fff;
+    font-size:26px; line-height:1; cursor:pointer; align-items:center; justify-content:center; color:#888;
+    -webkit-tap-highlight-color:transparent; z-index:80; }
+  #btn-scroll-float.visible { display:flex; }
+  #copy-close { display:none; position:fixed; left:50%; transform:translateX(-50%); width:26px; height:26px;
+    border-radius:50%; background:#0f1a22; border:1.5px solid #56b6c2; color:#56b6c2;
+    font-size:15px; line-height:1; cursor:pointer; align-items:center; justify-content:center;
+    -webkit-tap-highlight-color:transparent; box-shadow:0 2px 10px rgba(0,0,0,0.6); z-index:300; bottom:16px; }
+  #copy-close.visible { display:flex; }
+  #session-toggle { position:absolute; top:0; right:0; z-index:400;
+    background:transparent; border:none; color:#5dbb5d;
+    font-size:11px; font-family:monospace; cursor:pointer;
+    padding:16px 20px; min-width:48px; min-height:48px;
+    display:flex; align-items:center; justify-content:center; }
+  #session-toggle:focus { outline:none; }
+  #session-popup {
+    display:none; position:fixed; background:#0d0d0d; border:none;
+    border-radius:6px; z-index:1000;
+    min-width:180px; height:50vh; overflow-y:auto; scrollbar-width:none;
+  }
+  #session-popup::-webkit-scrollbar { display:none; }
+  .session-row {
+    display:flex; align-items:center; width:100%; padding:8px 16px;
+    cursor:pointer; gap:8px; min-height:36px;
+  }
+  .session-row:active { background:#1a1a1a; }
+  .session-row .session-name { flex:1; font-size:12px; font-family:monospace;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .session-row.active { background:#111; }
+  .session-row.add-row .session-name { color:#888; }
+
+  /* MD editor (shared by MD files dropdown) */
+  #kb-editor {
+    display:none; position:fixed; inset:0; z-index:2000; background:#0d0d0d;
+    flex-direction:column;
+  }
+  #kb-editor-header { display:flex; justify-content:space-between; align-items:center;
+    padding:8px 12px; flex-shrink:0; }
+  #kb-editor-name { color:#61afef; font-size:12px; font-family:monospace; }
+  #kb-editor-textarea { flex:1; background:#111; color:#e0e0e0; font-size:12px;
+    font-family:monospace; border:none; outline:none; padding:8px 12px;
+    resize:none; -webkit-user-select:text; user-select:text; }
+
+  /* MD files dropdown */
+  #md-toggle { position:absolute; top:0; left:0; z-index:400;
+    background:transparent; border:none; color:#666;
+    font-size:11px; font-family:monospace; cursor:pointer;
+    padding:16px 20px; min-width:48px; min-height:48px;
+    display:flex; align-items:center; justify-content:center; }
+  #md-toggle:focus { outline:none; }
+  #md-popup {
+    display:none; position:fixed; background:#0d0d0d; border:none;
+    border-radius:6px; z-index:1000;
+    min-width:200px; height:50vh; overflow-y:auto; scrollbar-width:none;
+  }
+  #md-popup::-webkit-scrollbar { display:none; }
+  .md-section-divider {
+    height:1px; background:#333; margin:4px 12px;
+  }
+  .md-row {
+    display:flex; align-items:center; width:100%; padding:8px 16px;
+    cursor:pointer; gap:8px; min-height:36px;
+  }
+  .md-row:active { background:#1a1a1a; }
+  .md-row .md-fname { flex:1; color:#aaa; font-size:12px; font-family:monospace;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+</style>
+</head>
+<body>
+<div id="app">
+  <button id="session-toggle" title="Switch session"></button>
+  <div id="session-popup"></div>
+  <div id="terminal-wrap">
+    <div id="scroll-track"><div id="scroll-thumb"></div></div>
+    <div id="scroll-track-left"><div id="scroll-thumb-left"></div></div>
+  </div>
+  <!-- Single icon toolbar  left→right:
+       🔄 reset | ⬆ upload | ⬇ export | ↑ term-up | ↓ term-down | ctrl | esc | copy | tab -->
+  <div id="kb-bar">
+    <button class="kb-btn" id="btn-rename" title="Rename session">#</button>
+    <label class="kb-btn" id="btn-upload" title="Upload file">+<input type="file" id="file-input" multiple style="position:absolute;width:0;height:0;opacity:0;pointer-events:none" accept="*/*"></label>
+    <button class="kb-btn" id="btn-export" title="Export as Markdown" style="line-height:0;position:relative;top:-3px">&#x2304;</button>
+    <button class="kb-btn" id="btn-copy"  title="Copy terminal output">&#x29C9;</button>
+    <button class="kb-btn" id="btn-up"    title="Arrow up">↑</button>
+    <button class="kb-btn" id="btn-down"  title="Arrow down">↓</button>
+    <button class="kb-btn" id="btn-esc"   title="Escape">e</button>
+    <button class="kb-btn" id="btn-speak" title="Read last response">&#x25C9;</button>
+  </div>
+</div>
+
+<!-- Rename uses native iOS dialogs -->
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Paste bar -->
+<div id="paste-overlay">
+  <textarea id="paste-area" placeholder="" rows="1" autocapitalize="none" autocorrect="off" autocomplete="off" spellcheck="false"></textarea>
+  <button id="paste-send-btn" title="Send">&#x2B06;</button>
+</div>
+
+<!-- Copy modal -->
+<div class="modal-overlay" id="copy-overlay">
+  <div class="modal-box">
+    <textarea id="copy-area" class="modal-textarea" readonly rows="10"></textarea>
+  </div>
+</div>
+<button id="copy-close" title="Close"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg"><polyline points="7,2 3,6.5 7,11" stroke="#56b6c2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><line x1="3" y1="6.5" x2="11" y2="6.5" stroke="#56b6c2" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+
+<!-- Floating scroll-to-bottom (only UI element for this action) -->
+<button id="btn-scroll-float" title="Scroll to bottom">&#8595;</button>
+
+<!-- MD files popup -->
+<div id="md-popup"></div>
+
+<!-- Knowledge editor -->
+<div id="kb-editor">
+  <div id="kb-editor-header">
+    <span id="kb-editor-name"></span>
+    <div>
+      <button id="kb-editor-save" style="color:#98c379;padding:4px 8px;font-size:16px;background:none;border:none;cursor:pointer;font-family:monospace">&#x2713;</button>
+      <button id="kb-editor-close" style="color:#e06c75;padding:4px 8px;font-size:16px;background:none;border:none;cursor:pointer;font-family:monospace">&#x2715;</button>
+    </div>
+  </div>
+  <div id="kb-editor-links" style="display:none;padding:4px 12px;flex-shrink:0;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none"></div>
+  <textarea id="kb-editor-textarea"></textarea>
+</div>
+
+<script>
+const term = new Terminal({
+  fontFamily:'"SF Mono","Fira Code",Menlo,Monaco,"Courier New",monospace',
+  fontSize:13, lineHeight:1.35,
+  theme:{
+    background:'#0d0d0d', foreground:'#e8e8e8', cursor:'#00e5ff', cursorAccent:'#0d0d0d',
+    black:'#1a1a1a', brightBlack:'#4a4a4a', red:'#e06c75', brightRed:'#ff7b86',
+    green:'#98c379', brightGreen:'#aad98f', yellow:'#e5c07b', brightYellow:'#f5d08b',
+    blue:'#61afef', brightBlue:'#79c0ff', magenta:'#c678dd', brightMagenta:'#d89eff',
+    cyan:'#56b6c2', brightCyan:'#6dc8d4', white:'#abb2bf', brightWhite:'#ffffff',
+  },
+  scrollback:5000, convertEol:true, cursorBlink:true, allowProposedApi:true,
+  fastScrollModifier:'none', scrollSensitivity:2, wordWrap:false,
+});
+const fitAddon = new FitAddon.FitAddon();
+term.loadAddon(fitAddon);
+term.loadAddon(new WebLinksAddon.WebLinksAddon((e, uri) => window.open(uri, '_blank')));
+term.open(document.getElementById('terminal-wrap'));
+
+const vp = document.querySelector('.xterm-viewport');
+let dropdownJustClosed = false; // suppress keyboard when dismissing a dropdown
+vp.style.touchAction = 'none'; // disable native momentum scroll — our code handles it
+
+// ---- Right-side scrollbar ----
+const scrollTrack      = document.getElementById('scroll-track');
+const scrollThumb      = document.getElementById('scroll-thumb');
+const scrollTrackLeft  = document.getElementById('scroll-track-left');
+const scrollThumbLeft  = document.getElementById('scroll-thumb-left');
+const allThumbs        = [scrollThumb, scrollThumbLeft];
+const allTracks        = [scrollTrack, scrollTrackLeft];
+let thumbDragging = false, thumbStartY = 0, thumbStartScrollTop = 0;
+let thumbRaf = null, updateRaf = null;
+
+// Use transform instead of top — GPU composited, no layout triggered
+function updateThumb() {
+  if (updateRaf) return; // already queued, skip
+  updateRaf = requestAnimationFrame(() => {
+    updateRaf = null;
+    const scrollable = vp.scrollHeight > vp.clientHeight + 10;
+    allTracks.forEach(t => t.style.display = scrollable ? '' : 'none');
+    if (!scrollable) return;
+    const trackH    = scrollTrack.clientHeight;
+    const thumbH    = Math.max(28, (vp.clientHeight / vp.scrollHeight) * trackH);
+    const maxScroll = vp.scrollHeight - vp.clientHeight;
+    const thumbTop  = maxScroll > 0 ? (vp.scrollTop / maxScroll) * (trackH - thumbH) : 0;
+    allThumbs.forEach(th => { th.style.height = thumbH + 'px'; th.style.transform = `translateY(${thumbTop}px)`; });
+  });
+}
+
+vp.addEventListener('scroll', updateThumb, {passive:true});
+
+// Prevent xterm from snapping when user has scrolled up
+let userScrolled = false, savedScrollTop = 0, restoreRafId = null;
+
+term.onWriteParsed(() => {
+  updateThumb();
+  if (userScrolled) {
+    vp.scrollTop = savedScrollTop; // immediate restore — prevents flash to bottom
+    if (restoreRafId) cancelAnimationFrame(restoreRafId);
+    restoreRafId = requestAnimationFrame(() => { restoreRafId = null; vp.scrollTop = savedScrollTop; });
+  }
+});
+
+// Thumb drag — touchmove listener added/removed dynamically so it never blocks non-drag touches
+function onThumbTouchMove(e) {
+  e.preventDefault();
+  const clientY = e.touches[0].clientY;
+  if (thumbRaf) cancelAnimationFrame(thumbRaf);
+  thumbRaf = requestAnimationFrame(() => {
+    thumbRaf = null;
+    const dy     = clientY - thumbStartY;
+    const trackH = scrollTrack.clientHeight;
+    const thumbH = scrollThumb.clientHeight;
+    vp.scrollTop = thumbStartScrollTop + (dy / (trackH - thumbH)) * (vp.scrollHeight - vp.clientHeight);
+  });
+}
+
+function onThumbMouseMove(e) {
+  if (!thumbDragging) return;
+  const dy     = e.clientY - thumbStartY;
+  const trackH = scrollTrack.clientHeight;
+  const thumbH = scrollThumb.clientHeight;
+  vp.scrollTop = thumbStartScrollTop + (dy / (trackH - thumbH)) * (vp.scrollHeight - vp.clientHeight);
+}
+
+function stopDrag() {
+  if (!thumbDragging) return;
+  thumbDragging = false;
+  allThumbs.forEach(t => t.classList.remove('dragging'));
+  document.removeEventListener('touchmove',   onThumbTouchMove);
+  document.removeEventListener('mousemove',   onThumbMouseMove);
+}
+
+allThumbs.forEach(thumb => {
+  thumb.addEventListener('touchstart', e => {
+    e.stopPropagation(); e.preventDefault();
+    thumbDragging = true;
+    thumbStartY = e.touches[0].clientY;
+    thumbStartScrollTop = vp.scrollTop;
+    allThumbs.forEach(t => t.classList.add('dragging'));
+    document.addEventListener('touchmove', onThumbTouchMove, {passive:false});
+  }, {passive:false});
+
+  thumb.addEventListener('mousedown', e => {
+    e.preventDefault();
+    thumbDragging = true; thumbStartY = e.clientY; thumbStartScrollTop = vp.scrollTop;
+    allThumbs.forEach(t => t.classList.add('dragging'));
+    document.addEventListener('mousemove', onThumbMouseMove);
+  });
+});
+
+document.addEventListener('touchend',    stopDrag);
+document.addEventListener('touchcancel', stopDrag);
+document.addEventListener('mouseup',     stopDrag);
+
+// Click on track to jump
+allTracks.forEach(track => {
+  track.addEventListener('click', e => {
+    if (e.target === scrollThumb || e.target === scrollThumbLeft) return;
+    const rect  = track.getBoundingClientRect();
+    const ratio = (e.clientY - rect.top) / track.clientHeight;
+    vp.scrollTop = ratio * (vp.scrollHeight - vp.clientHeight);
+  });
+});
+
+function fit() {
+  try { fitAddon.fit(); } catch(_){}
+  if (ws && ws.readyState === WebSocket.OPEN)
+    ws.send(JSON.stringify({t:'r', cols:term.cols, rows:term.rows}));
+}
+setTimeout(fit, 300);
+
+const proto   = location.protocol === 'https:' ? 'wss' : 'ws';
+const pathSeg = location.pathname.replace(/^\//, '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
+if (pathSeg) document.getElementById('page-title').textContent = pathSeg;
+const wsUrl   = proto + '://' + location.host + '/' + pathSeg;
+let ws = null, dead = false, reconnectTimer = null, hasConnected = false;
+
+function connect() {
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  const wasDead = dead;
+  dead = false;
+  ws = new WebSocket(wsUrl);
+  ws.onopen    = () => fit();
+  let syncSuppressUntil = 0;
+  ws.onmessage = ({data}) => {
+    const m = JSON.parse(data);
+    if (m.t === 'o') {
+      if (Date.now() < syncSuppressUntil) return; // suppress output right after sync
+      term.write(m.d);
+    }
+    if (m.t === 'h') {
+      if (!hasConnected) {
+        // First connect: show full history
+        term.reset(); term.write(m.d);
+      } else {
+        // Reconnect after service restart: preserve scrollback, just show indicator
+        term.write('\r\n\x1b[2;37m[reconnected]\x1b[0m\r\n');
+      }
+      hasConnected = true;
+    }
+    if (m.t === 'sync') {
+      // Skip sync entirely if user is scrolled up reading
+      if (userScrolled) return;
+      // Suppress live output so clean state persists (300ms window)
+      syncSuppressUntil = Date.now() + 300;
+      vp.style.visibility = 'hidden';
+      term.reset(); term.write(m.d);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          vp.scrollTop = vp.scrollHeight;
+          vp.style.visibility = '';
+        });
+      });
+    }
+    if (m.t === 'exit') { dead = true; term.write('\r\n\x1b[2;37m[session ended \u2014 reload to reconnect]\x1b[0m\r\n'); }
+  };
+  ws.onerror = () => {};
+  // Always auto-reconnect — even after 'exit' (server restart looks like exit)
+  ws.onclose = () => { reconnectTimer = setTimeout(connect, dead ? 5000 : 2000); };
+}
+connect();
+setInterval(() => { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({t:'ping'})); }, 20000);
+// iOS kills WebSocket when tab is backgrounded — force reconnect on return
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !dead) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+      connect();
+    }
+  }
+});
+// Clean up WebSocket before page unload — prevents iOS from hanging on reload
+window.addEventListener('pagehide', () => {
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  if (ws) { ws.onclose = null; ws.close(); ws = null; }
+});
+term.onData(d => { if (!dead && ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({t:'i', d})); });
+
+// ---- Keyboard proxy ----
+const kbBar = document.getElementById('kb-bar');
+let kbVisible = false;
+let kbDiff    = 0;
+let posKbDiff = 0; // locked at keyboard-open moment; ignores dictation bar inflation
+let ctrlMode = false;
+
+// Desktop (mouse): always show toolbar, never show paste overlay
+const isDesktop = window.matchMedia('(pointer:fine)').matches;
+if (isDesktop) {
+  kbBar.classList.add('visible');
+  kbVisible = true;
+}
+
+let keyboardOpening = false, keyboardOpeningTimer = null;
+let keyboardClosing = false, keyboardClosingTimer = null;
+function setKbVisible(v) {
+  if (isDesktop) return;
+  if (!v && keyboardOpening) return;
+  if (v && keyboardClosing) return;  // block re-open during active dismiss
+  if (!v) document.getElementById('paste-overlay').classList.remove('visible');
+  const changed = (kbVisible !== v);
+  kbVisible = v;
+  kbBar.classList.toggle('visible', v);
+  if (v && changed) openPaste(true);
+  if (!v && ctrlMode) disableCtrlMode();
+  updateFloatBtnPos();
+}
+
+function positionPasteBar() {
+  const overlay = document.getElementById('paste-overlay');
+  overlay.style.bottom = (kbVisible ? posKbDiff + 44 : 0) + 'px';
+}
+
+if (window.visualViewport) {
+  let ft, kbHideTimer = null;
+  
+  const updateVp = () => { document.getElementById('app').style.top = window.visualViewport.offsetTop + 'px'; };
+  window.visualViewport.addEventListener('scroll', updateVp);
+
+  window.visualViewport.addEventListener('resize', () => {
+    updateVp();
+    kbDiff = Math.max(0, window.innerHeight - window.visualViewport.height);
+    const kb = kbDiff > 120;
+    if (kb && !kbVisible) posKbDiff = kbDiff; // lock in height at the moment keyboard opens
+    else if (!kb)         posKbDiff = 0;
+    // if kb && kbVisible: keyboard already open, ignore inflation from dictation bar
+    if (kb !== kbVisible) {
+      if (kb) {
+        clearTimeout(kbHideTimer);
+        setKbVisible(true);
+      } else {
+        clearTimeout(kbHideTimer);
+        kbHideTimer = setTimeout(() => {
+          // Don't close keyboard if paste-area still has focus (teardrop drag can cause micro viewport changes)
+          const pa = document.getElementById('paste-area');
+          if (document.activeElement === pa) return;
+          if (kbVisible) setKbVisible(false);
+        }, 150);
+      }
+    } else {
+      clearTimeout(kbHideTimer);
+    }
+    positionPasteBar();
+    updateFloatBtnPos();
+    clearTimeout(ft);
+    if (!kb) {
+      // Only fit when keyboard closes — reclaim the space
+      ft = setTimeout(() => {
+        fit();
+        setTimeout(fit, 200); setTimeout(fit, 500);
+      }, 300);
+    }
+  });
+}
+
+function dismissKeyboard() {
+  if (isDesktop) return;
+  const overlay = document.getElementById('paste-overlay');
+  overlay.classList.remove('visible');
+  kbBar.classList.remove('visible');
+  kbVisible = false;
+  keyboardOpening = false;
+  clearTimeout(keyboardOpeningTimer);
+  keyboardClosing = true;
+  clearTimeout(keyboardClosingTimer);
+  keyboardClosingTimer = setTimeout(() => { keyboardClosing = false; }, 600);
+  const pa = document.getElementById('paste-area');
+  pa.setAttribute('readonly', '');
+  if (document.activeElement) document.activeElement.blur();
+  pa.blur();
+  setTimeout(() => pa.removeAttribute('readonly'), 400);
+}
+
+
+function focusKb() {
+  if (isDesktop) return;
+  // Only snap to bottom if already near it — don't yank user away from reading a response
+  if (vp.scrollTop >= vp.scrollHeight - vp.clientHeight - 200)
+    vp.scrollTop = vp.scrollHeight;
+  const overlay = document.getElementById('paste-overlay');
+  if (!overlay.classList.contains('visible')) {
+    overlay.classList.add('visible');
+    positionPasteBar();
+  }
+  kbBar.classList.add('visible');
+  kbVisible = true;
+  keyboardOpening = true;
+  clearTimeout(keyboardOpeningTimer);
+  keyboardOpeningTimer = setTimeout(() => { keyboardOpening = false; }, 600);
+  updateFloatBtnPos();
+  const area = document.getElementById('paste-area');
+  area.focus();
+  area.selectionStart = area.selectionEnd = area.value.length;
+}
+
+function send(data) {
+  if (!dead && ws && ws.readyState === WebSocket.OPEN)
+    ws.send(JSON.stringify({t:'i', d:data}));
+}
+
+function focusPasteOrKb() {
+  const overlay = document.getElementById('paste-overlay');
+  if (overlay.classList.contains('visible')) document.getElementById('paste-area').focus();
+}
+function wireBtn(id, key) {
+  const el = document.getElementById(id);
+  el.addEventListener('touchstart', e => e.preventDefault(), {passive:false});
+  el.addEventListener('touchend',   e => { e.preventDefault(); send(key); focusPasteOrKb(); }, {passive:false});
+  el.addEventListener('mousedown',  e => e.preventDefault());
+  el.addEventListener('click',      () => { send(key); focusPasteOrKb(); });
+}
+wireBtn('btn-up',  '\x1b[A');
+wireBtn('btn-down','\x1b[B');
+wireBtn('btn-esc', '\x1b');
+
+
+// ---- Paste modal ----
+function openPaste(noFocus) {
+  const overlay = document.getElementById('paste-overlay');
+  if (overlay.classList.contains('visible')) return;
+  const area = document.getElementById('paste-area');
+  area.value = '';
+  area.style.height = 'auto';
+  overlay.classList.add('visible');
+  positionPasteBar();
+  if (noFocus) return;
+  const focusEnd = () => { area.focus(); area.selectionStart = area.selectionEnd = area.value.length; };
+  if (navigator.clipboard && navigator.clipboard.readText) {
+    navigator.clipboard.readText().then(t => { if (t) area.value = t; focusEnd(); }).catch(focusEnd);
+  } else { focusEnd(); }
+}
+
+
+// On desktop, always show paste box
+if (isDesktop) openPaste(true);
+
+let pasteSendFn = () => {
+  const area = document.getElementById('paste-area');
+  const t = area.value;
+  // Write user message to xterm immediately so it stays in scrollback history.
+  // Claude Code runs in raw mode (no terminal echo), so without this the sent
+  // text is invisible until Claude Code renders its own styled block.
+  if (t.trim()) {
+    vp.scrollTop = vp.scrollHeight; // snap to bottom first
+    term.write('\r\n\x1b[38;5;110m' + t.replace(/\r?\n/g, '\r\n') + '\x1b[0m\r\n');
+  }
+  if (t) send(t); setTimeout(() => send('\r'), 20); // bypass paste protection
+  area.value = '';
+  area.style.height = 'auto';
+  area.focus();
+};
+
+document.getElementById('paste-send-btn').addEventListener('click', () => pasteSendFn());
+document.getElementById('paste-send-btn').addEventListener('touchend', e => { e.preventDefault(); pasteSendFn(); }, {passive:false});
+
+// Swipe up on paste area to send
+let _swipeStartY = 0;
+let _swipeStartX = 0;
+let _hadSelectionAtSwipeStart = false;
+const _pasteEl = document.getElementById('paste-area');
+_pasteEl.addEventListener('touchstart', (e) => {
+  _swipeStartY = e.touches[0].clientY;
+  _swipeStartX = e.touches[0].clientX;
+  _hadSelectionAtSwipeStart = _pasteEl.selectionStart !== _pasteEl.selectionEnd;
+}, { passive: true });
+_pasteEl.addEventListener('touchend', (e) => {
+  const dy = _swipeStartY - e.changedTouches[0].clientY;
+  const dx = Math.abs(e.changedTouches[0].clientX - _swipeStartX);
+  // Swipe up: at least 50px vertical, more vertical than horizontal
+  // Skip if user had a text selection at touchstart (teardrop drag, not a send gesture)
+  if (dy > 50 && dy > dx && _pasteEl.value.trim() && !_hadSelectionAtSwipeStart) {
+    e.preventDefault();
+    pasteSendFn();
+  }
+}, { passive: false });
+
+// Return key sends; auto-grow textarea with content
+const pasteArea = document.getElementById('paste-area');
+pasteArea.addEventListener('keydown', e => {
+  if (ctrlMode && e.key.length === 1) {
+    const c = e.key.toLowerCase().charCodeAt(0) - 96;
+    if (c > 0 && c < 27) { e.preventDefault(); send(String.fromCharCode(c)); disableCtrlMode(); return; }
+    disableCtrlMode();
+  }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); pasteSendFn(); }
+}, {passive:false});
+let pasteComposing = false;
+pasteArea.addEventListener('compositionstart', () => { pasteComposing = true; });
+pasteArea.addEventListener('compositionend',   () => { pasteComposing = false; });
+pasteArea.addEventListener('input', e => {
+  // Ctrl-mode fallback: keydown intercept may miss on touchscreen (Chromebook tablet)
+  // If a character landed in the box while ctrlMode is active, treat it as ctrl+char
+  if (ctrlMode && pasteArea.value.length === 1 && e.inputType !== 'insertFromPaste') {
+    const ch = pasteArea.value.toLowerCase();
+    const c = ch.charCodeAt(0) - 96;
+    pasteArea.value = '';
+    if (c > 0 && c < 27) send(String.fromCharCode(c));
+    disableCtrlMode();
+    return;
+  }
+  if (!pasteComposing && e.inputType !== 'insertFromPaste' && pasteArea.value.endsWith('\n')) {
+    pasteArea.value = pasteArea.value.slice(0, -1);
+    pasteSendFn();
+    return;
+  }
+  pasteArea.style.height = 'auto';
+  pasteArea.style.height = Math.min(pasteArea.scrollHeight, window.innerHeight * 0.4) + 'px';
+  updateFloatBtnPos();
+});
+
+// ---- Copy modal ----
+function getTerminalContent(maxLines) {
+  const buf = term.buffer.active, total = buf.length;
+  const lines = [];
+  for (let i = Math.max(0, total - (maxLines || 5000)); i < total; i++) {
+    const l = buf.getLine(i);
+    lines.push(l ? l.translateToString(true) : '');
+  }
+  while (lines.length && lines[lines.length - 1] === '') lines.pop();
+  return lines.join('\n');
+}
+
+function openCopyModal() {
+  const buf = term.buffer.active, total = buf.length;
+  const lines = [];
+  for (let i = Math.max(0, total - 5000); i < total; i++) {
+    const l = buf.getLine(i);
+    lines.push(l ? l.translateToString(true) : '');
+  }
+  while (lines.length && lines[lines.length-1] === '') lines.pop();
+  const area = document.getElementById('copy-area');
+  area.value = lines.join('\n');
+  document.getElementById('copy-overlay').classList.add('visible');
+  document.getElementById('copy-close').classList.add('visible');
+  setTimeout(() => { area.scrollTop = area.scrollHeight; area.focus(); }, 150);
+}
+
+document.getElementById('btn-copy').addEventListener('touchstart', e => e.preventDefault(), {passive:false});
+document.getElementById('btn-copy').addEventListener('touchend',   e => { e.preventDefault(); openCopyModal(); }, {passive:false});
+document.getElementById('btn-copy').addEventListener('click',      openCopyModal);
+
+document.getElementById('copy-close').addEventListener('click', () => {
+  document.getElementById('copy-overlay').classList.remove('visible');
+  document.getElementById('copy-close').classList.remove('visible');
+});
+// ---- Export as Markdown ----
+function exportAsMarkdown() {
+  const now  = new Date();
+  const md   = '# Terminal Session\n\nExported: ' + now.toISOString().slice(0,19).replace('T',' ') + '\n\n```\n' + getTerminalContent(5000) + '\n```\n';
+  const blob = new Blob([md], {type:'text/markdown'});
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {href:url, download:'terminal-'+now.toISOString().slice(0,10)+'.md'});
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+document.getElementById('btn-export').addEventListener('touchstart', e => e.preventDefault(), {passive:false});
+document.getElementById('btn-export').addEventListener('touchend',   e => { e.preventDefault(); exportAsMarkdown(); }, {passive:false});
+document.getElementById('btn-export').addEventListener('click',      exportAsMarkdown);
+
+// ---- Speak button (TTS) ----
+let speaking = false;
+let pendingSpeak = null;
+
+function speakLastResponse() {
+  if (!window.speechSynthesis) return;
+  if (speaking) {
+    speechSynthesis.cancel();
+    speaking = false;
+    pendingSpeak = null;
+    document.getElementById('btn-speak').style.color = '#fff';
+    return;
+  }
+  // Speak a silent utterance NOW (in user gesture) to unlock iOS TTS
+  // Then queue the real text after fetch completes
+  speechSynthesis.cancel();
+  var warmup = new SpeechSynthesisUtterance('.');
+  warmup.volume = 0.01;
+  warmup.rate = 10;
+  speaking = true;
+  document.getElementById('btn-speak').style.color = '#f1c40f';
+
+  warmup.onend = function() {
+    // Now fetch and speak the real content
+    if (pendingSpeak) {
+      var utter = new SpeechSynthesisUtterance(pendingSpeak);
+      utter.rate = 0.9;
+      utter.pitch = 1.0;
+      var voices = speechSynthesis.getVoices();
+      var pref = voices.find(function(v){ return v.name.includes('Samantha'); }) || voices.find(function(v){ return v.name.includes('Google'); }) || voices.find(function(v){ return v.lang === 'en-US'; });
+      if (pref) utter.voice = pref;
+      document.getElementById('btn-speak').style.color = '#5dbb5d';
+      utter.onend = function(){ speaking = false; pendingSpeak = null; document.getElementById('btn-speak').style.color = '#fff'; };
+      utter.onerror = function(){ speaking = false; pendingSpeak = null; document.getElementById('btn-speak').style.color = '#fff'; };
+      speechSynthesis.speak(utter);
+    } else {
+      // Fetch hasn't returned yet, wait a bit
+      var checkInterval = setInterval(function() {
+        if (pendingSpeak) {
+          clearInterval(checkInterval);
+          var utter = new SpeechSynthesisUtterance(pendingSpeak);
+          utter.rate = 0.9;
+          var voices = speechSynthesis.getVoices();
+          var pref = voices.find(function(v){ return v.name.includes('Samantha'); }) || voices.find(function(v){ return v.lang === 'en-US'; });
+          if (pref) utter.voice = pref;
+          document.getElementById('btn-speak').style.color = '#5dbb5d';
+          utter.onend = function(){ speaking = false; pendingSpeak = null; document.getElementById('btn-speak').style.color = '#fff'; };
+          utter.onerror = function(){ speaking = false; pendingSpeak = null; document.getElementById('btn-speak').style.color = '#fff'; };
+          speechSynthesis.speak(utter);
+        }
+        if (!speaking) clearInterval(checkInterval);
+      }, 200);
+    }
+  };
+  speechSynthesis.speak(warmup);
+
+  // Fetch in parallel
+  var ttyBase = 'http://' + location.hostname + ':' + location.port;
+  var path = location.pathname;
+  fetch(ttyBase + '/api/last-response?path=' + encodeURIComponent(path))
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      var text = (data.text || '').replace(/[^\w\s.,!?;:'"()-]/g, '').replace(/\s+/g, ' ').trim();
+      if (!text) { speaking = false; document.getElementById('btn-speak').style.color = '#fff'; return; }
+      pendingSpeak = text;
+    })
+    .catch(function(){ speaking = false; document.getElementById('btn-speak').style.color = '#fff'; });
+}
+document.getElementById('btn-speak').addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); }, {passive:false});
+document.getElementById('btn-speak').addEventListener('touchend', e => { e.preventDefault(); e.stopPropagation(); speakLastResponse(); }, {passive:false});
+document.getElementById('btn-speak').addEventListener('click', e => { e.stopPropagation(); speakLastResponse(); });
+
+
+// ---- Rename session (native iOS dialogs) ----
+function renameSession() {
+  const currentName = location.pathname.replace(/^\//, '').replace(/[^a-zA-Z0-9_-]/g, '') || 'terminal';
+  const choice = prompt('Session: ' + currentName + '\n\nEnter new name to rename.\nType DELETE to remove.\nType RESET to restart.\n\nOr cancel to go back.');
+  if (choice === null) return;
+  const trimmed = choice.trim();
+  if (!trimmed) return;
+  if (trimmed.toUpperCase() === 'DELETE') {
+    doDelete();
+  } else if (trimmed.toUpperCase() === 'RESET') {
+    doReset();
+  } else {
+    doRename(trimmed);
+  }
+}
+
+async function doRename(name) {
+  const clean = name.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
+  if (!clean) return;
+  try {
+    const r = await fetch('/api/rename', {
+      method: 'POST',
+      headers: {'content-type': 'application/json'},
+      body: JSON.stringify({ from: location.pathname, to: clean })
+    });
+    const j = await r.json();
+    if (j.ok) location.pathname = j.path;
+  } catch(e) {}
+}
+
+async function doDelete() {
+  if (!confirm('Delete this session? This cannot be undone.')) return;
+  try {
+    await fetch('/api/delete', {
+      method: 'POST',
+      headers: {'content-type': 'application/json'},
+      body: JSON.stringify({ path: location.pathname })
+    });
+  } catch(_) {}
+  window.location.href = 'http://' + location.hostname + ':' + location.port + '/terminal';
+}
+
+document.getElementById('btn-rename').addEventListener('touchstart', e => e.preventDefault(), {passive:false});
+document.getElementById('btn-rename').addEventListener('touchend',   e => { e.preventDefault(); renameSession(); }, {passive:false});
+document.getElementById('btn-rename').addEventListener('click',      renameSession);
+
+
+// ---- Scroll-to-bottom (floating button only) ----
+const floatBtn = document.getElementById('btn-scroll-float');
+function updateFloatBtnPos() {
+  const overlay = document.getElementById('paste-overlay');
+  const overlayH = overlay.classList.contains('visible') ? overlay.offsetHeight : 0;
+  floatBtn.style.bottom = (16 + (kbVisible ? 44 : 0) + overlayH + (kbDiff > 0 ? kbDiff : 0)) + 'px';
+}
+function updateScrollVis() {
+  floatBtn.classList.toggle('visible', vp.scrollTop < vp.scrollHeight - vp.clientHeight - 40);
+}
+
+vp.addEventListener('scroll', updateScrollVis, {passive:true});
+term.onWriteParsed(updateScrollVis);
+
+function scrollToBottom() {
+  cancelMomentum();
+  userScrolled = false;
+  function snap() { savedScrollTop = vp.scrollHeight; vp.scrollTop = vp.scrollHeight; }
+  snap();
+  requestAnimationFrame(() => {
+    snap();
+    requestAnimationFrame(() => {
+      snap();
+      requestAnimationFrame(() => {
+        snap();
+        updateScrollVis();
+      });
+    });
+  });
+  // Safety net — catches any late xterm render after RAF chain settles
+  setTimeout(() => { if (!userScrolled) { snap(); updateScrollVis(); } }, 120);
+}
+floatBtn.addEventListener('touchstart', e => e.preventDefault(), {passive:false});
+floatBtn.addEventListener('touchend',   e => { e.preventDefault(); scrollToBottom(); }, {passive:false});
+floatBtn.addEventListener('click',      scrollToBottom);
+
+// ---- Link detection from xterm buffer ----
+function getUrlAtPoint(clientX, clientY) {
+  const wrap = document.getElementById('terminal-wrap');
+  const rect  = wrap.getBoundingClientRect();
+  const buf   = term.buffer.active;
+  const cellW = rect.width  / term.cols;
+  const cellH = rect.height / term.rows;
+  const col   = Math.floor((clientX - rect.left) / cellW);
+  const row   = Math.floor((clientY - rect.top)  / cellH);
+  if (row < 0 || row >= term.rows || col < 0 || col >= term.cols) return null;
+  const line  = buf.getLine(buf.viewportY + row);
+  if (!line) return null;
+  const text  = line.translateToString(true);
+  const urlRe = /https?:\/\/[^\s\x1b\]'"<>]+/g;
+  let m;
+  while ((m = urlRe.exec(text)) !== null) {
+    if (col >= m.index && col < m.index + m[0].length)
+      return m[0].replace(/[.,;:!?)]+$/, '');
+  }
+  return null;
+}
+
+// ---- Touch scroll ----
+const tw = document.getElementById('terminal-wrap');
+let tStart=0, tX=0, tY=0, scrolling=false, lastScrollY=0, velSamples=[], lastMoveTime=0, mrafId=null;
+let wasMomentumActive=false;
+
+function cancelMomentum() {
+  if (mrafId) { cancelAnimationFrame(mrafId); mrafId = null; }
+  if (restoreRafId) { cancelAnimationFrame(restoreRafId); restoreRafId = null; }
+}
+
+tw.addEventListener('touchstart', e => {
+  if (e.target.closest('#paste-overlay')) return; // don't intercept paste area touches
+  e.stopImmediatePropagation();
+  wasMomentumActive = mrafId !== null;
+  if (wasMomentumActive) e.preventDefault(); // prevent iOS from resetting scroll position on stop-tap
+  cancelMomentum();
+  const t = e.touches[0];
+  tStart=Date.now(); tX=t.clientX; tY=t.clientY; scrolling=false;
+  lastScrollY=t.clientY; velSamples=[]; lastMoveTime=Date.now();
+}, {capture:true, passive:false});
+
+tw.addEventListener('touchmove', e => {
+  if (e.target.closest('#paste-overlay')) return; // don't intercept paste area touches
+  e.stopImmediatePropagation();
+  e.preventDefault();
+  const t=e.touches[0], now=Date.now(), dy=lastScrollY-t.clientY;
+  lastMoveTime=now; lastScrollY=t.clientY;
+  velSamples.push({dy, t:now});
+  if (velSamples.length > 1) velSamples = velSamples.filter(s => now - s.t < 100);
+  if (!scrolling && Math.abs(t.clientY-tY)>3) scrolling=true;
+  if (scrolling) {
+    vp.scrollTop += dy*3;
+    savedScrollTop = vp.scrollTop;
+    userScrolled = vp.scrollTop < vp.scrollHeight - vp.clientHeight - 30;
+  }
+}, {capture:true, passive:false});
+
+tw.addEventListener('touchcancel', e => {
+  scrolling = false; cancelMomentum();
+}, {capture:true, passive:true});
+
+tw.addEventListener('touchend', e => {
+  if (e.target.closest('#paste-overlay')) return; // don't intercept paste area touches
+  e.stopImmediatePropagation();
+  const t=e.changedTouches[0], dur=Date.now()-tStart;
+  if (!scrolling && Math.hypot(t.clientX-tX,t.clientY-tY)<6 && dur<400) {
+    if (wasMomentumActive) return; // tap was to stop momentum, not a real tap
+    e.preventDefault();
+    // If a dropdown is open or was just closed, suppress keyboard
+    const mdOpen = document.getElementById('md-popup').style.display === 'block';
+    const selOpen = document.getElementById('session-popup').style.display === 'block';
+    if (mdOpen || selOpen || dropdownJustClosed) {
+      if (mdOpen) document.getElementById('md-popup').style.display = 'none';
+      if (selOpen) document.getElementById('session-popup').style.display = 'none';
+      dropdownJustClosed = false;
+      return;
+    }
+    const url = getUrlAtPoint(t.clientX, t.clientY);
+    if (url) { window.open(url, '_blank'); return; }
+    const overlay = document.getElementById('paste-overlay');
+    if (overlay.classList.contains('visible')) {
+      dismissKeyboard();
+    } else {
+      focusKb();
+    }
+    return;
+  }
+  // Compute velocity from rolling 100ms window instead of last sample only
+  const now = Date.now();
+  const recent = velSamples.filter(s => now - s.t < 100);
+  const totalDy = recent.reduce((sum, s) => sum + s.dy, 0);
+  const span = recent.length > 1 ? now - recent[0].t : 1;
+  const velY = totalDy / Math.max(span, 1);
+  if (scrolling && Math.abs(velY)>0.3 && recent.length >= 3) {
+    let v=velY*3, target=vp.scrollTop;
+    (function momentum(){
+      v*=0.95; if(Math.abs(v)<0.005){mrafId=null;return;}
+      target = Math.max(0, Math.min(target + v*16, vp.scrollHeight - vp.clientHeight));
+      vp.scrollTop = target;
+      savedScrollTop = target;
+      userScrolled = target < vp.scrollHeight - vp.clientHeight - 30;
+      mrafId=requestAnimationFrame(momentum);
+    })();
+  }
+}, {capture:true, passive:false});
+
+// ---- Desktop click-to-focus ----
+if (isDesktop) {
+  tw.addEventListener('click', () => {
+    const area = document.getElementById('paste-area');
+    area.focus();
+    area.selectionStart = area.selectionEnd = area.value.length;
+  });
+}
+
+// ---- File upload ----
+const fileInput = document.getElementById('file-input');
+fileInput.addEventListener('change', async () => {
+  const files = Array.from(fileInput.files);
+  fileInput.value = '';
+  if (!files.length) return;
+  const names = files.map(f => f.name).join(', ');
+  term.write(`\r\n\x1b[2;37m[uploading ${files.length} file(s): ${names}...]\x1b[0m`);
+  try {
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f, f.name));
+    const j = await (await fetch('/api/upload', {method:'POST', body:fd})).json();
+    const results = j.files || [j];
+    results.forEach(r => {
+      term.write(r.ok
+        ? `\r\n\x1b[32m[uploaded → ${r.path} (${(r.size/1024).toFixed(1)} KB)]\x1b[0m`
+        : `\r\n\x1b[31m[upload failed: ${r.error}]\x1b[0m`);
+    });
+    term.write('\r\n');
+  } catch(e) { term.write(`\r\n\x1b[31m[upload error: ${e.message}]\x1b[0m\r\n`); }
+});
+// btn-upload is now a <label> — no JS needed, browser handles file picker natively
+
+// ---- Reset ----
+async function doReset() {
+  if (!confirm('Kill this tmux session and start fresh?')) return;
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer=null; }
+  if (ws) { ws.onclose=null; ws.onerror=null; ws.onmessage=null; ws.close(); ws=null; }
+  dead=false;
+  try { await fetch('/api/reset',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({path:location.pathname})}); } catch(_){}
+  term.clear(); term.write('\x1b[2;37m[session reset — reconnecting...]\x1b[0m\r\n');
+  setTimeout(connect,800);
+}
+// rename-reset button removed -- reset now triggered via native prompt
+
+// ---- Toast ----
+let toastTimer;
+function showToast(msg, isError, duration) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('error', !!isError);
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), duration || (isError ? 5000 : 3000));
+}
+
+
+let rt;
+window.addEventListener('resize',           ()=>{clearTimeout(rt);rt=setTimeout(fit,100);});
+window.addEventListener('orientationchange',()=>setTimeout(fit,300));
+new ResizeObserver(()=>{clearTimeout(rt);rt=setTimeout(fit,80);}).observe(tw);
+
+updateFloatBtnPos();
+
+// ── Web Speech API: always-listening voice input ──────────────────────
+// Only activates on HTTPS (nip.io:4023). Transcribes speech into paste input.
+(function() {
+  if (location.protocol !== 'https:') return; // no mic on plain HTTP
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
+
+  const area = document.getElementById('paste-area');
+  let rec = null;
+  let confirmedText = '';
+  let ignoreUntilNew = false;
+
+  function createRec() {
+    const r = new SR();
+    r.continuous = true;
+    r.interimResults = true;
+    r.lang = 'en-US';
+
+    let lastResultCount = 0;
+
+    r.onresult = (e) => {
+      if (ignoreUntilNew) {
+        if (e.resultIndex <= lastResultCount) return;
+        ignoreUntilNew = false;
+        confirmedText = '';
+      }
+      lastResultCount = e.results.length;
+
+      let interim = '';
+      let final = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) final += t;
+        else interim += t;
+      }
+
+      if (final && final.trim()) {
+        confirmedText = (confirmedText ? confirmedText + ' ' : '') + final.trim();
+      }
+
+      const display = confirmedText + (interim ? (confirmedText ? ' ' : '') + interim : '');
+      area.value = display;
+      area.style.height = 'auto';
+      area.style.height = Math.min(area.scrollHeight, window.innerHeight * 0.4) + 'px';
+      updateFloatBtnPos();
+    };
+
+    r.onend = () => {
+      // Auto-restart with fresh instance
+      setTimeout(() => startSpeech(), 250);
+    };
+
+    r.onerror = (e) => {
+      if (e.error === 'no-speech' || e.error === 'aborted') return;
+      console.error('Speech error:', e.error);
+    };
+
+    return r;
+  }
+
+  function startSpeech() {
+    rec = createRec();
+    confirmedText = '';
+    try { rec.start(); } catch {
+      setTimeout(() => {
+        rec = createRec();
+        try { rec.start(); } catch {}
+      }, 500);
+    }
+  }
+
+  // Sync confirmedText when user manually types
+  area.addEventListener('input', () => { confirmedText = area.value; });
+
+  // Clear speech state when message is sent (hook into pasteSendFn)
+  const origSend = pasteSendFn;
+  pasteSendFn = function() {
+    origSend();
+    confirmedText = '';
+    ignoreUntilNew = true;
+  };
+
+  startSpeech();
+})();
+
+// ---- MD files dropdown ----
+(function() {
+  const mdToggle = document.getElementById('md-toggle');
+  const mdPopup = document.getElementById('md-popup');
+  const kbEditor = document.getElementById('kb-editor');
+  const kbTextarea = document.getElementById('kb-editor-textarea');
+  const kbEditorName = document.getElementById('kb-editor-name');
+  const ttyBase = 'http://' + location.hostname + ':' + location.port;
+  let _mdEditingId = null;
+
+  function getSessionName() {
+    return location.pathname.replace(/^\//, '').replace(/[^a-zA-Z0-9_-]/g, '') || 'terminal';
+  }
+
+  function renderMdPopup() {
+    const session = 's' + getSessionName();
+    fetch(ttyBase + '/api/md-files?session=' + encodeURIComponent(session))
+      .then(r => r.json()).then(files => {
+        mdPopup.innerHTML = '';
+        let lastDir = null;
+        files.forEach(f => {
+          if (f.dir !== lastDir) {
+            if (lastDir !== null) {
+              const divider = document.createElement('div');
+              divider.className = 'md-section-divider';
+              mdPopup.appendChild(divider);
+            }
+            lastDir = f.dir;
+          }
+          const row = document.createElement('div');
+          row.className = 'md-row';
+          const name = document.createElement('span');
+          name.className = 'md-fname';
+          name.textContent = f.name;
+          row.addEventListener('click', () => {
+            mdPopup.style.display = 'none';
+            openMdEditor(f);
+          });
+          row.appendChild(name);
+          mdPopup.appendChild(row);
+        });
+      });
+  }
+
+  function openMdEditor(f) {
+    _mdEditingId = f.id;
+
+    kbEditorName.textContent = f.name + ' (' + f.dir + ')';
+    fetch(ttyBase + '/api/md-file?id=' + encodeURIComponent(f.id))
+      .then(r => r.text()).then(text => {
+        kbTextarea.value = text;
+        // Extract markdown links and raw URLs
+        const linksBar = document.getElementById('kb-editor-links');
+        linksBar.innerHTML = '';
+        const mdLinks = [...text.matchAll(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g)];
+        const rawUrls = [...text.matchAll(/(?<!\()https?:\/\/[^\s\)<>]+/g)];
+        const seen = new Set();
+        const allLinks = [];
+        mdLinks.forEach(m => { if (!seen.has(m[2])) { seen.add(m[2]); allLinks.push({label: m[1], url: m[2]}); }});
+        rawUrls.forEach(m => { if (!seen.has(m[0])) { seen.add(m[0]); allLinks.push({label: m[0].replace(/^https?:\/\//, '').slice(0,30), url: m[0]}); }});
+        if (allLinks.length) {
+          allLinks.forEach(l => {
+            const a = document.createElement('a');
+            a.href = l.url; a.target = '_blank'; a.textContent = l.label;
+            a.style.cssText = 'color:#61afef;font-size:11px;font-family:monospace;margin-right:12px;text-decoration:none;';
+            linksBar.appendChild(a);
+          });
+          linksBar.style.display = 'block';
+        } else {
+          linksBar.style.display = 'none';
+        }
+        kbEditor.style.display = 'flex';
+      });
+  }
+
+  document.getElementById('kb-editor-save').addEventListener('click', () => {
+    if (!_mdEditingId) return;
+    fetch(ttyBase + '/api/md-file', {
+      method: 'POST', headers: {'content-type':'application/json'},
+      body: JSON.stringify({ id: _mdEditingId, content: kbTextarea.value })
+    }).then(() => {
+      _mdEditingId = null;
+      kbEditor.style.display = 'none';
+    });
+  });
+
+  document.getElementById('kb-editor-close').addEventListener('click', () => {
+    _mdEditingId = null;
+    kbEditor.style.display = 'none';
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!mdPopup.contains(e.target) && e.target !== mdToggle) {
+      if (mdPopup.style.display === 'block') {
+        dropdownJustClosed = true;
+        setTimeout(() => { dropdownJustClosed = false; }, 300);
+      }
+      mdPopup.style.display = 'none';
+    }
+  });
+})();
+
+// ---- Session switcher dropdown ----
+(function() {
+  const toggle = document.getElementById('session-toggle');
+  const popup = document.getElementById('session-popup');
+  if (!toggle) return;
+  const currentPath = location.pathname.replace(/^\//, '').replace(/[^a-zA-Z0-9_-]/g, '');
+  const API = 'http://' + location.hostname + ':4025';
+  let sessionList = [];
+  let lastActivity = null;
+
+  toggle.textContent = currentPath || 'terminal';
+
+  let sessionMap = {}; // tmux name (e.g. "sterminal") -> project name
+  let activityTimes = {}; // tmux name -> unix timestamp of last activity
+  function loadSessions() {
+    const ttyApi = 'http://' + location.hostname + ':' + location.port;
+    Promise.all([
+      fetch(ttyApi + '/api/sessions').then(r => r.json()).catch(() => []),
+      fetch(ttyApi + '/api/session-map').then(r => r.json()).catch(() => ({})),
+      fetch(ttyApi + '/api/session-activity-times').then(r => r.json()).catch(() => ({}))
+    ]).then(([live, map, times]) => {
+      sessionMap = map;
+      activityTimes = times;
+      const seen = new Set();
+      const all = [];
+      live.forEach(s => {
+        const name = s.startsWith('s') ? s.slice(1) : s;
+        if (name && !seen.has(name)) { seen.add(name); all.push(name); }
+      });
+      Object.keys(map).forEach(s => {
+        const name = s.startsWith('s') ? s.slice(1) : s;
+        if (name && !seen.has(name)) { seen.add(name); all.push(name); }
+      });
+      // Sort by last activity (most recent first)
+      all.sort((a, b) => {
+        const ta = activityTimes['s' + a] || 0;
+        const tb = activityTimes['s' + b] || 0;
+        return tb - ta;
+      });
+      sessionList = all.length ? all : [currentPath || 'main'];
+      updateToggleColor();
+    });
+  }
+
+  let projectList = [];
+  fetch(API + '/api/projects').then(r => r.json()).then(data => {
+    const ps = data.projects || data;
+    projectList = (Array.isArray(ps) ? ps : []).map(p => p.name || p).filter(Boolean);
+  }).catch(() => {});
+
+  function matchProject(name) {
+    const lower = name.toLowerCase();
+    for (let len = lower.length; len >= 3; len--) {
+      const prefix = lower.slice(0, len);
+      const match = projectList.find(p => p.toLowerCase().startsWith(prefix));
+      if (match) return match;
+    }
+    return name;
+  }
+
+  function updateToggleColor() {
+    const cur = lastActivity && lastActivity['s' + currentPath];
+    toggle.style.color = cur === 'generating' ? '#f1c40f' : '#5dbb5d';
+  }
+
+  function renderPopup() {
+    popup.innerHTML = '';
+    addNewSessionRow(popup, false);
+    // Nikipedia + Copilot links right after +
+    [{name:'Nikipedia',url:'http://'+location.hostname+':4090#niki:'+encodeURIComponent(currentPath)},
+     {name:'Copilot',url:'http://'+location.hostname+':4051/'},
+     {name:'Usage',url:'https://claude.ai/settings/usage'}
+    ].forEach(function(lk){
+      var r = document.createElement('div');
+      r.className = 'session-row';
+      var s = document.createElement('span');
+      s.className = 'session-name';
+      s.textContent = lk.name;
+      s.style.color = '#61afef';
+      r.appendChild(s);
+      r.addEventListener('click', function(){ popup.style.display='none'; window.open(lk.url,'_blank'); });
+      popup.appendChild(r);
+    });
+    // Group sessions by project
+    const groups = {};
+    sessionList.forEach(name => {
+      const tmuxName = 's' + name;
+      const project = sessionMap[tmuxName] || name;
+      if (!groups[project]) groups[project] = [];
+      groups[project].push(name);
+    });
+    // Sort groups by most recent session activity
+    Object.keys(groups).sort((a, b) => {
+      const ta = Math.max(...groups[a].map(n => activityTimes['s' + n] || 0));
+      const tb = Math.max(...groups[b].map(n => activityTimes['s' + n] || 0));
+      return tb - ta;
+    }).forEach(project => {
+      groups[project].forEach(name => {
+        const row = document.createElement('div');
+        row.className = 'session-row' + (name === currentPath ? ' active' : '');
+        const span = document.createElement('span');
+        span.className = 'session-name';
+        span.textContent = name;
+        const tmuxName = 's' + name;
+        const status = lastActivity && lastActivity[tmuxName];
+        span.style.color = status === 'generating' ? '#f1c40f' : '#5dbb5d';
+        row.appendChild(span);
+        row.addEventListener('click', () => {
+          popup.style.display = 'none';
+          if (name !== currentPath) location.pathname = '/' + name;
+        });
+        popup.appendChild(row);
+      });
+    });
+  }
+
+  function addNewSessionRow(container, prepend) {
+    const addRow = document.createElement('div');
+    addRow.className = 'session-row add-row';
+    const addSpan = document.createElement('span');
+    addSpan.className = 'session-name';
+    addSpan.textContent = '+';
+    addRow.appendChild(addSpan);
+    addRow.addEventListener('click', async () => {
+      popup.style.display = 'none';
+      const name = prompt('Session name:');
+      if (!name) return;
+      const clean = name.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
+      if (!clean) return;
+      const project = matchProject(clean);
+      try {
+        const r = await fetch(API + '/api/sessions/create', {
+          method: 'POST', headers: {'content-type':'application/json'},
+          body: JSON.stringify({ name: clean, project: project })
+        });
+        const data = await r.json();
+        if (r.ok) {
+          location.pathname = '/' + clean;
+        } else {
+          alert(data.error || 'Failed to create session');
+        }
+      } catch (e) { alert('Error: ' + e.message); }
+    });
+    if (prepend && container.firstChild) {
+      container.insertBefore(addRow, container.firstChild);
+    } else {
+      container.appendChild(addRow);
+    }
+  }
+
+  async function pollActivity() {
+    try {
+      lastActivity = await fetch(API + '/api/session-activity').then(r => r.json());
+      updateToggleColor();
+    } catch (_) {}
+  }
+
+  loadSessions();
+  pollActivity();
+  setInterval(pollActivity, 3000);
+
+  toggle.addEventListener('click', (e) => {
+    // Close MD popup if open
+    const mp = document.getElementById('md-popup');
+    if (mp && mp.style.display === 'block') mp.style.display = 'none';
+    const open = popup.style.display === 'block';
+    popup.style.display = open ? 'none' : 'block';
+    if (!open) {
+      loadSessions(); // refresh list with latest activity times
+      setTimeout(renderPopup, 200); // render after data loads
+      // Position from right edge
+      const rect = toggle.getBoundingClientRect();
+      popup.style.right = (window.innerWidth - rect.right) + 'px';
+      popup.style.left = 'auto';
+      popup.style.top = rect.bottom + 'px';
+    }
+    e.stopPropagation();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!popup.contains(e.target) && e.target !== toggle) {
+      if (popup.style.display === 'block') {
+        dropdownJustClosed = true;
+        setTimeout(() => { dropdownJustClosed = false; }, 300);
+      }
+      popup.style.display = 'none';
+    }
+  });
+})();
+</script>
+</body>
+</html>

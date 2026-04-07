@@ -1,0 +1,11 @@
+node_modules/
+*.db
+*.db-journal
+logs/
+pids/
+.env
+raw/
+wiki/
+uploads/
+__pycache__/
+*.pyc

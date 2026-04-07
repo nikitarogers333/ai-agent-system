@@ -303,23 +303,27 @@ SVCEOF
 fi
 
 # =============================
-# DONE
+# AUTO-START SERVICES
 # =============================
+if [ "$MODE" = "local" ]; then
+  info "Starting services..."
+  bash "$INSTALL_DIR/start.sh"
+fi
+
 echo ""
 echo "============================================"
-info "Installation complete!"
-echo ""
-echo "  Start:   $INSTALL_DIR/start.sh"
-echo "  Stop:    $INSTALL_DIR/stop.sh"
-echo "  Status:  $INSTALL_DIR/status.sh"
+info "Setup complete! Services are running."
 echo ""
 echo "  Terminal:  http://localhost:4021"
 echo "  Wiki:      http://localhost:4090"
-echo "  Copilot:   http://localhost:4051 (needs DEEPGRAM_API_KEY)"
+echo ""
+echo "  Stop:      $INSTALL_DIR/stop.sh"
+echo "  Restart:   $INSTALL_DIR/start.sh"
+echo "  Status:    $INSTALL_DIR/status.sh"
 echo ""
 
 LAN_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || ipconfig getifaddr en0 2>/dev/null || echo "unknown")
-echo "  Phone access (same WiFi): http://$LAN_IP:4021"
+echo "  Phone (same WiFi): http://$LAN_IP:4021"
 echo ""
 
 if ! command -v claude &>/dev/null; then

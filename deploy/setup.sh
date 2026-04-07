@@ -28,26 +28,19 @@ info() { echo -e "${GREEN}[+]${NC} $*"; }
 warn() { echo -e "${YELLOW}[!]${NC} $*"; }
 fail() { echo -e "${RED}[x]${NC} $*"; exit 1; }
 
-# Wait for apt lock to be free (common on fresh systems / Chromebook Linux)
-wait_for_apt() {
-  local max_wait=60
-  local waited=0
-  while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
-    if [ $waited -eq 0 ]; then
-      info "Waiting for package manager to finish..."
-    fi
-    sleep 2
-    waited=$((waited + 2))
-    if [ $waited -ge $max_wait ]; then
-      warn "Package manager still locked after ${max_wait}s. Trying anyway..."
-      break
-    fi
-  done
-}
-
+# Retry apt install with automatic lock waiting
 apt_install() {
-  wait_for_apt
-  sudo apt-get install -y "$@"
+  local retries=0
+  local max_retries=10
+  while [ $retries -lt $max_retries ]; do
+    if sudo apt-get install -y "$@" 2>/dev/null; then
+      return 0
+    fi
+    retries=$((retries + 1))
+    info "Package manager busy, retrying in 5s... ($retries/$max_retries)"
+    sleep 5
+  done
+  fail "Could not install packages after $max_retries attempts"
 }
 
 # =============================
@@ -61,7 +54,6 @@ if ! command -v node &>/dev/null; then
   if command -v brew &>/dev/null; then
     brew install node
   elif command -v apt-get &>/dev/null; then
-    wait_for_apt
     curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
     apt_install nodejs
   else

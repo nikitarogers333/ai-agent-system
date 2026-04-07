@@ -101,8 +101,14 @@ info "tmux: $TMUX_VER"
 
 # Python packages
 info "Installing Python dependencies..."
-pip3 install --quiet fastapi uvicorn python-multipart aiofiles 2>/dev/null || \
-  pip3 install --user --quiet fastapi uvicorn python-multipart aiofiles
+if command -v pip3 &>/dev/null; then
+  pip3 install --quiet fastapi uvicorn python-multipart aiofiles 2>/dev/null || \
+    pip3 install --user --quiet fastapi uvicorn python-multipart aiofiles
+else
+  python3 -m pip install --quiet fastapi uvicorn python-multipart aiofiles 2>/dev/null || \
+    python3 -m pip install --user --quiet --break-system-packages fastapi uvicorn python-multipart aiofiles 2>/dev/null || \
+    { apt_install python3-pip 2>/dev/null && pip3 install --quiet fastapi uvicorn python-multipart aiofiles; }
+fi
 
 # Claude CLI (check, don't install -- user needs their own account)
 if command -v claude &>/dev/null; then

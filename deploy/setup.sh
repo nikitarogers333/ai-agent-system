@@ -99,16 +99,11 @@ fi
 TMUX_VER=$(tmux -V)
 info "tmux: $TMUX_VER"
 
-# Python packages
-info "Installing Python dependencies..."
-if command -v pip3 &>/dev/null; then
-  pip3 install --quiet fastapi uvicorn python-multipart aiofiles 2>/dev/null || \
-    pip3 install --user --quiet fastapi uvicorn python-multipart aiofiles
-else
-  python3 -m pip install --quiet fastapi uvicorn python-multipart aiofiles 2>/dev/null || \
-    python3 -m pip install --user --quiet --break-system-packages fastapi uvicorn python-multipart aiofiles 2>/dev/null || \
-    { apt_install python3-pip 2>/dev/null && pip3 install --quiet fastapi uvicorn python-multipart aiofiles; }
-fi
+# Python packages via venv (avoids PEP 668 / externally-managed-environment errors)
+info "Setting up Python virtual environment..."
+python3 -m venv "$INSTALL_DIR/.venv" 2>/dev/null || { apt_install python3-venv && python3 -m venv "$INSTALL_DIR/.venv"; }
+"$INSTALL_DIR/.venv/bin/pip" install --quiet fastapi uvicorn python-multipart aiofiles
+info "Python deps installed in .venv"
 
 # Claude CLI (check, don't install -- user needs their own account)
 if command -v claude &>/dev/null; then
@@ -195,7 +190,9 @@ echo "  Terminal:  http://localhost:${TTY_PORT:-4021}"
 
 # Start Nikipedia
 cd "$DIR/knowledge"
-nohup python3 server.py > "$DIR/logs/knowledge.log" 2>&1 &
+PYTHON="$DIR/.venv/bin/python3"
+[ ! -f "$PYTHON" ] && PYTHON="python3"
+nohup $PYTHON server.py > "$DIR/logs/knowledge.log" 2>&1 &
 echo $! > "$DIR/pids/knowledge.pid"
 echo "  Wiki:      http://localhost:${WIKI_PORT:-4090}"
 
@@ -270,7 +267,7 @@ if [ "$MODE" = "vps" ]; then
         WDIR="$INSTALL_DIR/tty"
         ;;
       knowledge)
-        EXEC="python3 $INSTALL_DIR/knowledge/server.py"
+        EXEC="$INSTALL_DIR/.venv/bin/python3 $INSTALL_DIR/knowledge/server.py"
         WDIR="$INSTALL_DIR/knowledge"
         ;;
       copilot)

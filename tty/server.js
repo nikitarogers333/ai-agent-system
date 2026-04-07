@@ -229,9 +229,7 @@ app.post('/api/sessions/create', express.json(), (req, res) => {
 
 // Trigger context-watcher for a session (fire-and-forget, no await)
 function triggerContextUpdate(sessionName) {
-  
-    detached: true, stdio: ['ignore', 'ignore', 'ignore']
-  }).unref();
+  // Override: add your own context watcher here
 }
 
 app.post('/api/delete', express.json(), (req, res) => {

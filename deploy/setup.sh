@@ -102,7 +102,7 @@ info "tmux: $TMUX_VER"
 # Python packages via venv (avoids PEP 668 / externally-managed-environment errors)
 info "Setting up Python virtual environment..."
 python3 -m venv "$INSTALL_DIR/.venv" 2>/dev/null || { apt_install python3-venv && python3 -m venv "$INSTALL_DIR/.venv"; }
-"$INSTALL_DIR/.venv/bin/pip" install --quiet fastapi uvicorn python-multipart aiofiles
+"$INSTALL_DIR/.venv/bin/pip" install --quiet fastapi uvicorn python-multipart aiofiles feedparser numpy sqlitedict scikit-learn
 info "Python deps installed in .venv"
 
 # Claude CLI (check, don't install -- user needs their own account)

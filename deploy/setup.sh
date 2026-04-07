@@ -91,6 +91,14 @@ fi
 TMUX_VER=$(tmux -V)
 info "tmux: $TMUX_VER"
 
+# Build tools (needed for node-pty native compilation)
+if command -v apt-get &>/dev/null; then
+  if ! command -v make &>/dev/null || ! command -v g++ &>/dev/null; then
+    info "Installing build tools..."
+    apt_install build-essential
+  fi
+fi
+
 # Python packages via venv (avoids PEP 668 / externally-managed-environment errors)
 info "Setting up Python virtual environment..."
 python3 -m venv "$INSTALL_DIR/.venv" 2>/dev/null || { apt_install python3-venv && python3 -m venv "$INSTALL_DIR/.venv"; }

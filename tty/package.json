@@ -1,1 +1,1 @@
-{"name":"tty","version":"1.0.0","main":"server.js","dependencies":{"express":"^5.2.1","ws":"^8.20.0"}}
+{"name":"tty","version":"1.0.0","main":"server.js","dependencies":{"express":"^5.2.1","node-pty":"^1.0.0","ws":"^8.20.0"}}

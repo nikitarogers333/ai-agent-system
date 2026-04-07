@@ -179,6 +179,11 @@ source "$DIR/.env" 2>/dev/null
 
 echo "Starting AI Agent System..."
 
+# Ensure required directories exist
+mkdir -p "$DIR/logs" "$DIR/pids"
+mkdir -p "$DIR/knowledge/raw" "$DIR/knowledge/wiki" "$DIR/knowledge/uploads" "$DIR/knowledge/arxiv_data" "$DIR/knowledge/pids"
+mkdir -p "$DIR/tty/public/vendor" 2>/dev/null
+
 # Ensure tmux server is running
 tmux new-session -d -s _init 2>/dev/null && tmux kill-session -t _init 2>/dev/null
 

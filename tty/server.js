@@ -240,9 +240,6 @@ app.post('/api/delete', express.json(), (req, res) => {
     if (content.trim()) {
       const tmp = `/tmp/context-watcher-delete-${sessionName}.txt`;
       fs.writeFileSync(tmp, content);
-      
-        detached: true, stdio: ['ignore', 'ignore', 'ignore']
-      }).unref();
     }
   } catch(_) {}
   // Remove from session map
@@ -333,9 +330,6 @@ app.post('/api/reset', express.json(), (req, res) => {
     if (content.trim()) {
       const tmp = `/tmp/context-watcher-reset-${sessionName}.txt`;
       fs.writeFileSync(tmp, content);
-      
-        detached: true, stdio: ['ignore', 'ignore', 'ignore']
-      }).unref();
     }
   } catch(_) {}
   // Remove from session map so URL is freed up

@@ -17,7 +17,7 @@ from sqlitedict import SqliteDict
 
 logger = logging.getLogger(__name__)
 
-ARXIV_DIR = Path("/opt/knowledge/arxiv_data")
+ARXIV_DIR = Path(__file__).parent / "arxiv_data"
 ARXIV_DIR.mkdir(exist_ok=True)
 PAPERS_DB = str(ARXIV_DIR / "papers.db")
 FEATURES_FILE = str(ARXIV_DIR / "features.p")
@@ -314,7 +314,7 @@ def save_paper_to_wiki(paper_id, wiki_dir, db_path):
     if not paper:
         return None
 
-    raw_dir = Path("/opt/knowledge/raw")
+    raw_dir = Path(__file__).parent / "raw"
     from datetime import datetime
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -368,7 +368,7 @@ date: {datetime.now().isoformat()}
 
 def migrate_from_arxiv_sanity():
     """Import papers from the standalone arxiv-sanity-lite install if it exists."""
-    old_db = "/opt/arxiv-sanity-lite/data/papers.db"
+    old_db = str(Path(__file__).parent / "arxiv_data" / "legacy_papers.db")
     if not os.path.exists(old_db):
         return 0
 

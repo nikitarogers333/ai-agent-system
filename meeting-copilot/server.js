@@ -269,7 +269,7 @@ function buildPrompt(meetingContext, priorSuggestions, transcript, imagePaths) {
 // ─── Transcribe chunk (Whisper fallback) ──────────────────────────────────────
 function transcribeChunk(audioPath) {
   return new Promise((resolve) => {
-    const proc = spawn('python3', ['/opt/meeting-copilot/transcribe.py', audioPath], {
+    const proc = spawn('python3', [require('path').join(__dirname, 'transcribe.py'), audioPath], {
       env: { ...process.env, WHISPER_MODEL: 'tiny' }
     });
     let out = '';

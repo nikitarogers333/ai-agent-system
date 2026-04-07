@@ -44,7 +44,7 @@ def compile_entries(entry: dict, existing_articles: list, wiki_dir: str) -> tupl
         relevant = []
         try:
             import sqlite3 as _sql
-            conn = _sql.connect("/opt/knowledge/kb.db")
+            conn = _sql.connect(str(Path(__file__).parent / "kb.db"))
             conn.row_factory = _sql.Row
             # Clean search terms for FTS (remove special chars)
             clean_terms = re.sub(r'[^\w\s]', ' ', search_terms)

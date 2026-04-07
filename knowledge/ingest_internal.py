@@ -16,7 +16,7 @@ import hashlib
 from datetime import datetime
 from pathlib import Path
 
-BASE = Path("/opt/knowledge")
+BASE = Path(__file__).parent
 RAW_INTERNAL = BASE / "raw" / "internal"
 WIKI = BASE / "wiki"
 DB_PATH = BASE / "kb.db"

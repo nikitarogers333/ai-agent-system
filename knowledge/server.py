@@ -28,7 +28,7 @@ from compile import compile_entries, lint_wiki
 from ingest_internal import run_ingest as run_internal_ingest
 from arxiv_feed import fetch_arxiv_papers, get_arxiv_papers, get_arxiv_paper, save_paper_to_wiki, compute_arxiv_features, get_similar_papers
 
-BASE = Path("/opt/knowledge")
+BASE = Path(__file__).parent
 RAW = BASE / "raw"
 WIKI = BASE / "wiki"
 UPLOADS = BASE / "uploads"
@@ -1426,7 +1426,7 @@ async def get_graph():
 @app.get("/api/graph/tree")
 async def get_graph_tree():
     """Return knowledge tree from tree_structure.json with article previews."""
-    tree_path = Path("/opt/knowledge/tree_structure.json")
+    tree_path = Path(__file__).parent / "tree_structure.json"
     if not tree_path.exists():
         return {"tree": {}, "stats": {"articles": 0, "categories": 0}}
 
@@ -1481,7 +1481,7 @@ async def extract_graph_from_articles():
     """Run entity/relationship extraction on all articles. Returns count of new nodes/edges."""
     import subprocess
     result = subprocess.run(
-        ["python3", "/opt/knowledge/extract_graph.py"],
+        ["python3", str(Path(__file__).parent / "extract_graph.py")],
         capture_output=True, text=True, timeout=300
     )
     return {"stdout": result.stdout, "stderr": result.stderr, "returncode": result.returncode}

@@ -49,7 +49,6 @@
   .img-name { flex: 1; color: #aaa; font-size: 11px; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .img-remove { color: #e06c75; font-size: 14px; cursor: pointer; padding: 2px 4px; background: none; border: none; font-family: monospace; }
 
-  /* Popup */
   #file-popup {
     display: none; position: fixed; background: #0d0d0d; border: none;
     border-radius: 6px; box-shadow: none; z-index: 1000;
@@ -67,16 +66,24 @@
   #new-file-row { display: flex; align-items: center; width: 100%; padding: 8px 12px; cursor: pointer; gap: 8px; }
   #new-file-row:active { background: #1a1a1a; }
 
-  /* Editor */
   #file-editor {
-    display: none; position: fixed; inset: 0; z-index: 2000; background: #0d0d0d; flex-direction: column;
+    display: none; position: fixed; inset: 0; z: 2000; background: #0d0d0d; flex-direction: column;
   }
   #editor-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; flex-shrink: 0; }
   #editor-name { color: #61afef; font-size: 12px; font-family: monospace; }
   #editor-textarea { flex: 1; background: #111; color: #e0e0e0; font-size: 12px; font-family: monospace; border: none; outline: none; padding: 8px 12px; resize: none; user-select: text; }
+
+  #no-speech-warning {
+    display: none; position: fixed; top: 0; left: 0; right: 0;
+    background: #e06c75; color: #0d0d0d; text-align: center;
+    padding: 8px; font-size: 12px; z-index: 3000;
+  }
 </style>
 </head>
 <body>
+<div id="no-speech-warning">
+  Web Speech API not supported in this browser. Use Chrome or Edge.
+</div>
 <div id="main-content">
   <div id="suggestions-panel">
     <div id="suggestions-flow"></div>
@@ -95,22 +102,21 @@
   <button id="menu-btn" title="Context files">*</button>
 </div>
 <div id="img-list"></div>
-
 <div id="file-popup"></div>
 
 <div id="file-editor">
   <div id="editor-header">
     <span id="editor-name"></span>
     <div>
-      <button id="editor-save" style="color:#98c379;padding:4px 8px;font-size:16px">✓</button>
-      <button id="editor-close" style="color:#e06c75;padding:4px 8px;font-size:16px">✕</button>
+      <button id="editor-save" style="color:#98c379;padding:4px 8px;font-size:16px">ok</button>
+      <button id="editor-close" style="color:#e06c75;padding:4px 8px;font-size:16px">x</button>
     </div>
   </div>
   <textarea id="editor-textarea"></textarea>
 </div>
 
 <script>
-// iOS Chrome height fix
+// iOS height fix
 function fixHeight() { document.body.style.height = window.innerHeight + 'px'; }
 fixHeight();
 window.addEventListener('resize', fixHeight);
@@ -119,115 +125,158 @@ const textEl = document.getElementById('transcript-text');
 const interimEl = document.getElementById('transcript-interim');
 const sugFlow = document.getElementById('suggestions-flow');
 const menuBtn = document.getElementById('menu-btn');
-function setStatusColor(c) { menuBtn.style.color = c; }
 const sugPanel = document.getElementById('suggestions-panel');
-function appendSug(s) { sugFlow.appendChild(s); sugPanel.scrollTop = sugPanel.scrollHeight; }
 
-function handleMsg(msg) {
-  if (msg.type === 'status') {
-    if (msg.text && msg.text.includes('Thinking')) setStatusColor('#61afef');
-    else if (msg.text && msg.text.includes('Listening')) setStatusColor('#5dbb5d');
-  }
-  if (msg.type === 'transcript') {
-    if (msg.final) {
+function setStatusColor(c) { menuBtn.style.color = c; }
+function appendSug(el) { sugFlow.appendChild(el); sugPanel.scrollTop = sugPanel.scrollHeight; }
+
+function makeSuggestionEl(text) {
+  var s = document.createElement('span');
+  s.className = 'suggestion-entry';
+  s.textContent = text.replace(/\*\*/g, '');
+  return s;
+}
+
+// -- Web Speech API --
+var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+var recognition = null;
+var recognitionActive = false;
+
+if (!SpeechRecognitionCtor) {
+  document.getElementById('no-speech-warning').style.display = 'block';
+}
+
+function startRecognition() {
+  if (!SpeechRecognitionCtor || recognitionActive) return;
+
+  recognition = new SpeechRecognitionCtor();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = function() {
+    recognitionActive = true;
+    setStatusColor('#5dbb5d');
+  };
+
+  recognition.onresult = function(event) {
+    var interim = '';
+    var finalText = '';
+
+    for (var i = event.resultIndex; i < event.results.length; i++) {
+      var transcript = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalText += transcript;
+      } else {
+        interim += transcript;
+      }
+    }
+
+    interimEl.textContent = interim;
+
+    if (finalText.trim()) {
       interimEl.textContent = '';
-      textEl.textContent += (textEl.textContent ? ' ' : '') + msg.text;
+      textEl.textContent += (textEl.textContent ? ' ' : '') + finalText.trim();
       document.getElementById('transcript-strip').scrollTop = 999999;
-    } else { interimEl.textContent = msg.text; }
-  } else if (msg.type === 'suggestion') {
-    const s = document.createElement('span'); s.className = 'suggestion-entry';
-    s.textContent = msg.text.replace(/\*\*/g, '');
-    appendSug(s);
-  } else if (msg.type === 'image_added') {
-    if (typeof updateImgBadge === 'function') {
-      _images.push({ path: msg.path, name: msg.name });
-      updateImgBadge();
+
+      if (_ws && _ws.readyState === WebSocket.OPEN) {
+        _ws.send(JSON.stringify({ type: 'transcript', text: finalText.trim() }));
+      }
     }
-  } else if (msg.type === 'image_removed') {
-    if (typeof updateImgBadge === 'function') {
-      _images = _images.filter(i => i.path !== msg.path);
-      updateImgBadge();
+  };
+
+  recognition.onerror = function(event) {
+    recognitionActive = false;
+    if (event.error === 'not-allowed') {
+      setStatusColor('#e06c75');
+      return;
     }
-  } else if (msg.type === 'session_resume') {
-    if (msg.transcript) {
-      textEl.textContent = msg.transcript;
-      document.getElementById('transcript-strip').scrollTop = 999999;
-    }
-    if (msg.suggestions && msg.suggestions.length) {
-      while (sugFlow.firstChild) sugFlow.removeChild(sugFlow.firstChild);
-      msg.suggestions.forEach(su => {
-        const s = document.createElement('span'); s.className = 'suggestion-entry';
-        s.textContent = su.text.replace(/\*\*/g, ''); appendSug(s);
-      });
-    }
-    if (msg.images && msg.images.length) {
-      _images = msg.images.map(p => ({ path: p, name: p.split('/').pop() }));
-      if (typeof updateImgBadge === 'function') updateImgBadge();
-    }
+    setTimeout(startRecognition, 1000);
+  };
+
+  recognition.onend = function() {
+    recognitionActive = false;
+    setTimeout(startRecognition, 100);
+  };
+
+  try {
+    recognition.start();
+  } catch(e) {
+    setTimeout(startRecognition, 2000);
   }
+}
+
+// -- WebSocket --
+var _ws = null;
+
+function connectWS() {
+  var wsUrl = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host;
+  var ws = new WebSocket(wsUrl);
+  _ws = ws;
+
+  ws.onopen = function() {
+    setStatusColor('#5dbb5d');
+    startRecognition();
+  };
+
+  ws.onclose = function() {
+    setStatusColor('#e06c75');
+    setTimeout(connectWS, 3000);
+  };
+
+  ws.onmessage = function(e) {
+    var msg = JSON.parse(e.data);
+    if (msg.type === 'status') {
+      if (msg.text && msg.text.indexOf('Thinking') >= 0) setStatusColor('#61afef');
+      else if (msg.text && msg.text.indexOf('Listening') >= 0) setStatusColor('#5dbb5d');
+    } else if (msg.type === 'suggestion') {
+      appendSug(makeSuggestionEl(msg.text));
+    } else if (msg.type === 'session_resume') {
+      if (msg.transcript) {
+        textEl.textContent = msg.transcript;
+        document.getElementById('transcript-strip').scrollTop = 999999;
+      }
+      if (msg.suggestions && msg.suggestions.length) {
+        while (sugFlow.firstChild) sugFlow.removeChild(sugFlow.firstChild);
+        msg.suggestions.forEach(function(su) { appendSug(makeSuggestionEl(su.text)); });
+      }
+      if (msg.images && msg.images.length) {
+        _images = msg.images.map(function(p) { return { path: p, name: p.split('/').pop() }; });
+        updateImgBadge();
+      }
+    }
+  };
 }
 
 // Load saved session
-fetch('/api/session').then(r => r.json()).then(data => {
-  if (data.transcript) { textEl.textContent = data.transcript; document.getElementById('transcript-strip').scrollTop = 999999; }
+fetch('/api/session').then(function(r) { return r.json(); }).then(function(data) {
+  if (data.transcript) {
+    textEl.textContent = data.transcript;
+    document.getElementById('transcript-strip').scrollTop = 999999;
+  }
   if (data.suggestions && data.suggestions.length) {
     while (sugFlow.firstChild) sugFlow.removeChild(sugFlow.firstChild);
-    data.suggestions.forEach(su => {
-      const s = document.createElement('span'); s.className = 'suggestion-entry';
-      s.textContent = su.text.replace(/\*\*/g, ''); appendSug(s);
-    });
+    data.suggestions.forEach(function(su) { appendSug(makeSuggestionEl(su.text)); });
   }
   if (data.images && data.images.length) {
-    _images = data.images.map(p => ({ path: p, name: p.split('/').pop() }));
+    _images = data.images.map(function(p) { return { path: p, name: p.split('/').pop() }; });
   }
-}).catch(() => {});
+}).catch(function() {});
 
-let _ws = null;
-let _stream = null;
-let _rec = null;
+connectWS();
 
-function connectWS() {
-  const wsUrl = (location.protocol==='https:'?'wss':'ws')+'://'+location.host;
-  const ws = new WebSocket(wsUrl);
-  _ws = ws;
-  ws.onopen = () => setStatusColor('#5dbb5d');
-  ws.onclose = () => {
-    setStatusColor('#e06c75');
-    if (_rec && _rec.state !== 'inactive') try { _rec.stop(); } catch(e) {}
-    _rec = null;
-  };
-  ws.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
-    handleMsg(msg);
-    if (msg.type === 'mode' && _stream) {
-      const dg = msg.mode === 'deepgram';
-      const mime = ['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(t=>MediaRecorder.isTypeSupported(t))||'';
-      _rec = new MediaRecorder(_stream, mime ? {mimeType:mime} : {});
-      _rec.ondataavailable = (ev) => {
-        if (ev.data.size < 100) return;
-        if (ws.readyState === WebSocket.OPEN) ev.data.arrayBuffer().then(buf => ws.send(buf));
-      };
-      _rec.start(dg ? 250 : 10000);
-      setStatusColor('#5dbb5d');
-    }
-  };
-}
-
-navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:false, noiseSuppression:false, sampleRate:16000 }, video:false })
-  .then(stream => { _stream = stream; connectWS(); })
-  .catch(() => setStatusColor('#e06c75'));
-
-// ── File popup ──────────────────────────────────────────────────────────────
-const filePopup = document.getElementById('file-popup');
+// -- File popup --
+var filePopup = document.getElementById('file-popup');
 
 function makeFileRow(f) {
-  const row = document.createElement('div'); row.className = 'file-row';
+  var row = document.createElement('div'); row.className = 'file-row';
   row._fileId = f.id; row.dataset.id = f.id;
-  const name = document.createElement('span'); name.className = 'file-name'; name.textContent = f.name;
+  var name = document.createElement('span'); name.className = 'file-name'; name.textContent = f.name;
   name.style.color = f.selected ? '#5dbb5d' : '#aaa';
-  const edit = document.createElement('button'); edit.className = 'file-edit'; edit.textContent = '*';
+  var edit = document.createElement('button'); edit.className = 'file-edit'; edit.textContent = '*';
 
-  row.addEventListener('click', (e) => {
+  row.addEventListener('click', function(e) {
     if (e.target === edit) return;
     e.stopPropagation();
     f.selected = !f.selected;
@@ -235,7 +284,7 @@ function makeFileRow(f) {
     saveSelection();
   });
 
-  edit.addEventListener('click', (e) => {
+  edit.addEventListener('click', function(e) {
     e.stopPropagation();
     filePopup.style.display = 'none';
     openEditor(f);
@@ -247,9 +296,9 @@ function makeFileRow(f) {
 }
 
 function saveSelection() {
-  const sel = [];
-  filePopup.querySelectorAll('.file-row').forEach(row => {
-    const n = row.querySelector('.file-name');
+  var sel = [];
+  filePopup.querySelectorAll('.file-row').forEach(function(row) {
+    var n = row.querySelector('.file-name');
     if (row._fileId && n && n.style.color === 'rgb(93, 187, 93)') sel.push(row._fileId);
   });
   menuBtn.textContent = sel.length > 0 ? sel.length : '*';
@@ -259,77 +308,81 @@ function saveSelection() {
 }
 
 function renderPopup() {
-  fetch('/api/context-files').then(r => r.json()).then(files => {
-    filePopup.innerHTML = '';
-    const custom = files.filter(f => f.id.startsWith('ctx:'));
-    const projects = files.filter(f => f.id.startsWith('proj:'));
+  fetch('/api/context-files').then(function(r) { return r.json(); }).then(function(files) {
+    filePopup.textContent = '';
+    var custom = files.filter(function(f) { return f.id.indexOf('ctx:') === 0; });
+    var projects = files.filter(function(f) { return f.id.indexOf('proj:') === 0; });
 
-    custom.forEach(f => filePopup.appendChild(makeFileRow(f)));
+    custom.forEach(function(f) { filePopup.appendChild(makeFileRow(f)); });
     if (custom.length && projects.length) {
-      const div = document.createElement('div'); div.className = 'file-divider'; filePopup.appendChild(div);
+      var div = document.createElement('div'); div.className = 'file-divider'; filePopup.appendChild(div);
     }
-    projects.forEach(f => filePopup.appendChild(makeFileRow(f)));
+    projects.forEach(function(f) { filePopup.appendChild(makeFileRow(f)); });
 
-    const newRow = document.createElement('div'); newRow.id = 'new-file-row';
-    newRow.innerHTML = '<span style="color:#98c379;font-size:14px">+</span>';
-    newRow.addEventListener('click', (e) => { e.stopPropagation(); createNewFile(); });
+    var newRow = document.createElement('div'); newRow.id = 'new-file-row';
+    var plus = document.createElement('span');
+    plus.style.cssText = 'color:#98c379;font-size:14px';
+    plus.textContent = '+';
+    newRow.appendChild(plus);
+    newRow.addEventListener('click', function(e) { e.stopPropagation(); createNewFile(); });
     filePopup.appendChild(newRow);
 
-    menuBtn.textContent = files.filter(f => f.selected).length || '*';
-    menuBtn.style.fontSize = files.some(f => f.selected) ? '16px' : '20px';
+    var n = files.filter(function(f) { return f.selected; }).length;
+    menuBtn.textContent = n > 0 ? n : '*';
+    menuBtn.style.fontSize = n > 0 ? '16px' : '20px';
   });
 }
 
-menuBtn.addEventListener('click', (e) => {
-  const open = filePopup.style.display === 'block';
+menuBtn.addEventListener('click', function(e) {
+  var open = filePopup.style.display === 'block';
   filePopup.style.display = open ? 'none' : 'block';
   if (!open) {
     renderPopup();
-    const r = menuBtn.getBoundingClientRect();
+    var r = menuBtn.getBoundingClientRect();
     filePopup.style.left = r.left + 'px';
     filePopup.style.bottom = (window.innerHeight - r.top + 6) + 'px';
   }
   e.stopPropagation();
 });
-document.addEventListener('click', () => { filePopup.style.display = 'none'; });
+document.addEventListener('click', function() { filePopup.style.display = 'none'; });
 
 function createNewFile() {
-  const name = prompt('File name:');
+  var name = prompt('File name:');
   if (!name) return;
-  fetch('/api/context-file/create', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ name }) })
-    .then(r => r.json()).then(data => {
-      if (data.ok) { openEditor({ id: data.id, name }); renderPopup(); }
+  fetch('/api/context-file/create', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ name: name }) })
+    .then(function(r) { return r.json(); }).then(function(data) {
+      if (data.ok) { openEditor({ id: data.id, name: name }); renderPopup(); }
       else { alert(data.error || 'Failed'); }
     });
 }
 
-// ── File editor ─────────────────────────────────────────────────────────────
-const fileEditor = document.getElementById('file-editor');
-const editorTextarea = document.getElementById('editor-textarea');
-const editorName = document.getElementById('editor-name');
-let _editingFileId = null;
+// -- File editor --
+var fileEditor = document.getElementById('file-editor');
+var editorTextarea = document.getElementById('editor-textarea');
+var editorNameEl = document.getElementById('editor-name');
+var _editingFileId = null;
 
 function openEditor(f) {
   _editingFileId = f.id;
-  editorName.textContent = f.name;
-  fetch('/api/context-file?id=' + encodeURIComponent(f.id)).then(r => r.text()).then(text => {
+  editorNameEl.textContent = f.name;
+  fetch('/api/context-file?id=' + encodeURIComponent(f.id)).then(function(r) { return r.text(); }).then(function(text) {
     editorTextarea.value = text;
     fileEditor.style.display = 'flex';
   });
 }
 
-document.getElementById('editor-save').addEventListener('click', () => {
+document.getElementById('editor-save').addEventListener('click', function() {
   fetch('/api/context-file', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ id: _editingFileId, content: editorTextarea.value }) })
-    .then(() => { fileEditor.style.display = 'none'; });
+    .then(function() { fileEditor.style.display = 'none'; });
 });
-document.getElementById('editor-close').addEventListener('click', () => { fileEditor.style.display = 'none'; });
+document.getElementById('editor-close').addEventListener('click', function() { fileEditor.style.display = 'none'; });
 
-// ── Image upload ────────────────────────────────────────────────────────────
-const imgBtn = document.getElementById('img-btn');
-const imgInput = document.getElementById('img-input');
-const imgBadge = document.getElementById('img-badge');
-const imgList = document.getElementById('img-list');
-let _images = []; // [{path, name}]
+// -- Image upload --
+var imgBtn = document.getElementById('img-btn');
+var imgInput = document.getElementById('img-input');
+var imgBadge = document.getElementById('img-badge');
+var imgListEl = document.getElementById('img-list');
+var _images = [];
 
 function updateImgBadge() {
   if (_images.length > 0) {
@@ -342,106 +395,101 @@ function updateImgBadge() {
   }
 }
 
-imgBtn.addEventListener('click', (e) => {
+imgBtn.addEventListener('click', function(e) {
   e.stopPropagation();
   if (_images.length > 0) {
-    const open = imgList.style.display === 'block';
-    imgList.style.display = open ? 'none' : 'block';
+    var open = imgListEl.style.display === 'block';
+    imgListEl.style.display = open ? 'none' : 'block';
     if (!open) renderImgList();
   } else {
     imgInput.click();
   }
 });
 
-imgBtn.addEventListener('dblclick', (e) => {
+imgBtn.addEventListener('dblclick', function(e) {
   e.stopPropagation();
   imgInput.click();
 });
 
 function renderImgList() {
-  while (imgList.firstChild) imgList.removeChild(imgList.firstChild);
-  _images.forEach(img => {
-    const row = document.createElement('div'); row.className = 'img-row';
-    const fname = img.path.split('/').pop();
-    const isImage = /\.(png|jpe?g|gif|webp)$/i.test(fname);
-    let thumb;
+  while (imgListEl.firstChild) imgListEl.removeChild(imgListEl.firstChild);
+  _images.forEach(function(img) {
+    var row = document.createElement('div'); row.className = 'img-row';
+    var fname = img.path.split('/').pop();
+    var isImage = /\.(png|jpe?g|gif|webp)$/i.test(fname);
+    var thumb;
     if (isImage) {
       thumb = document.createElement('img'); thumb.className = 'img-thumb';
       thumb.src = '/uploads/' + fname;
     } else {
       thumb = document.createElement('span'); thumb.className = 'img-thumb';
       thumb.style.cssText = 'display:flex;align-items:center;justify-content:center;background:#1a1a1a;color:#888;font-size:9px;border-radius:3px';
-      const ext = fname.split('.').pop().toUpperCase();
-      thumb.textContent = ext.slice(0, 3);
+      thumb.textContent = fname.split('.').pop().toUpperCase().slice(0, 3);
     }
-    const name = document.createElement('span'); name.className = 'img-name'; name.textContent = img.name;
-    const rm = document.createElement('button'); rm.className = 'img-remove'; rm.textContent = 'x';
-    rm.addEventListener('click', (e) => {
+    var nameEl = document.createElement('span'); nameEl.className = 'img-name'; nameEl.textContent = img.name;
+    var rm = document.createElement('button'); rm.className = 'img-remove'; rm.textContent = 'x';
+    rm.addEventListener('click', function(e) {
       e.stopPropagation();
       fetch('/api/remove-image', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ path: img.path }) });
-      _images = _images.filter(i => i.path !== img.path);
+      _images = _images.filter(function(i) { return i.path !== img.path; });
       updateImgBadge();
       renderImgList();
-      if (_images.length === 0) imgList.style.display = 'none';
+      if (_images.length === 0) imgListEl.style.display = 'none';
     });
-    row.appendChild(thumb); row.appendChild(name); row.appendChild(rm);
-    imgList.appendChild(row);
+    row.appendChild(thumb); row.appendChild(nameEl); row.appendChild(rm);
+    imgListEl.appendChild(row);
   });
-  const addRow = document.createElement('div'); addRow.className = 'img-row';
-  const addLabel = document.createElement('span');
+  var addRow = document.createElement('div'); addRow.className = 'img-row';
+  var addLabel = document.createElement('span');
   addLabel.style.cssText = 'color:#98c379;font-size:14px;cursor:pointer';
   addLabel.textContent = '+ add';
   addRow.appendChild(addLabel);
-  addRow.addEventListener('click', (e) => { e.stopPropagation(); imgInput.click(); });
-  imgList.appendChild(addRow);
-  const r = imgBtn.getBoundingClientRect();
-  imgList.style.left = r.left + 'px';
-  imgList.style.bottom = (window.innerHeight - r.top + 6) + 'px';
+  addRow.addEventListener('click', function(e) { e.stopPropagation(); imgInput.click(); });
+  imgListEl.appendChild(addRow);
+  var r = imgBtn.getBoundingClientRect();
+  imgListEl.style.left = r.left + 'px';
+  imgListEl.style.bottom = (window.innerHeight - r.top + 6) + 'px';
 }
 
-document.addEventListener('click', () => { imgList.style.display = 'none'; });
+document.addEventListener('click', function() { imgListEl.style.display = 'none'; });
 
-imgInput.addEventListener('change', async () => {
-  const files = imgInput.files;
+imgInput.addEventListener('change', async function() {
+  var files = imgInput.files;
   if (!files || !files.length) return;
-  for (const file of files) {
-    const fd = new FormData();
-    fd.append('image', file);
+  for (var k = 0; k < files.length; k++) {
+    var fd = new FormData();
+    fd.append('image', files[k]);
     try {
-      const res = await fetch('/api/upload-image', { method: 'POST', body: fd });
-      const data = await res.json();
+      var res = await fetch('/api/upload-image', { method: 'POST', body: fd });
+      var data = await res.json();
       if (data.ok) {
         _images.push({ path: data.path, name: data.name });
         updateImgBadge();
+        if (_ws && _ws.readyState === WebSocket.OPEN) {
+          _ws.send(JSON.stringify({ type: 'image_added', path: data.path, name: data.name }));
+        }
       }
     } catch(e) {}
   }
   imgInput.value = '';
 });
 
-// ── Clear ───────────────────────────────────────────────────────────────────
-document.getElementById('clear-btn').addEventListener('click', () => {
+// -- Clear --
+document.getElementById('clear-btn').addEventListener('click', function() {
   textEl.textContent = ''; interimEl.textContent = '';
   while (sugFlow.firstChild) sugFlow.removeChild(sugFlow.firstChild);
-  _images = []; updateImgBadge(); imgList.style.display = 'none';
+  _images = []; updateImgBadge(); imgListEl.style.display = 'none';
   if (_ws && _ws.readyState === WebSocket.OPEN) _ws.send(JSON.stringify({ type: 'clear' }));
 });
 
-// ── Twilio SSE ──────────────────────────────────────────────────────────────
-(function connectSSE(delay) {
-  const sse = new EventSource('https://45-55-169-94.nip.io:4053/events');
-  sse.onmessage = (e) => { try { handleMsg(JSON.parse(e.data)); } catch(ex) {} };
-  sse.onerror = () => { sse.close(); setTimeout(() => connectSSE(Math.min(delay*2, 60000)), delay); };
-})(3000);
-
-// ── Draggable divider ───────────────────────────────────────────────────────
+// -- Draggable divider --
 (function() {
-  const pA = document.getElementById('suggestions-panel');
-  const pB = document.getElementById('transcript-panel');
-  const divider = document.querySelector('.divider');
-  const strip = document.getElementById('transcript-strip');
-  const MIN = 44;
-  let dragging = false, startY = 0, hA0 = 0, hB0 = 0, total0 = 0;
+  var pA = document.getElementById('suggestions-panel');
+  var pB = document.getElementById('transcript-panel');
+  var divider = document.querySelector('.divider');
+  var strip = document.getElementById('transcript-strip');
+  var MIN = 44;
+  var dragging = false, startY = 0, hA0 = 0, hB0 = 0, total0 = 0;
 
   function down(e) {
     dragging = true;
@@ -453,10 +501,10 @@ document.getElementById('clear-btn').addEventListener('click', () => {
   }
   function move(e) {
     if (!dragging) return;
-    const y = e.touches ? e.touches[0].clientY : e.clientY;
-    const dy = y - startY;
-    let hA = Math.max(MIN, hA0 + dy);
-    let hB = total0 - hA;
+    var y = e.touches ? e.touches[0].clientY : e.clientY;
+    var dy = y - startY;
+    var hA = Math.max(MIN, hA0 + dy);
+    var hB = total0 - hA;
     if (hB < MIN) { hB = MIN; hA = total0 - hB; }
     pA.style.flex = 'none'; pA.style.height = hA + 'px';
     pB.style.flex = 'none'; pB.style.height = hB + 'px';
@@ -473,15 +521,14 @@ document.getElementById('clear-btn').addEventListener('click', () => {
   document.addEventListener('touchend', up);
 })();
 
-// ── Init: load selection count ──────────────────────────────────────────────
-fetch('/api/context-files').then(r => r.json()).then(files => {
-  const n = files.filter(f => f.selected).length;
+// -- Init --
+fetch('/api/context-files').then(function(r) { return r.json(); }).then(function(files) {
+  var n = files.filter(function(f) { return f.selected; }).length;
   menuBtn.textContent = n > 0 ? n : '*';
   menuBtn.style.fontSize = n > 0 ? '16px' : '20px';
-}).catch(() => {});
+}).catch(function() {});
 
-// ── Cleanup ─────────────────────────────────────────────────────────────────
-window.addEventListener('pagehide', () => { if (_ws) { _ws.onclose=null; _ws.close(); } });
+window.addEventListener('pagehide', function() { if (_ws) { _ws.onclose = null; _ws.close(); } });
 </script>
 </body>
 </html>

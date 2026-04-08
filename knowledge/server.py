@@ -369,7 +369,7 @@ async def update_article_tags(slug: str, body: dict):
 
 @app.get("/api/projects")
 async def list_projects():
-    """Return all project names from /root/projects/ for tag selection."""
+    """Return all project names from ~/projects/ for tag selection."""
     projects_dir = os.environ.get("PROJECTS_DIR", os.path.expanduser("~/projects"))
     try:
         projects = sorted([d for d in os.listdir(projects_dir)
@@ -1719,4 +1719,5 @@ async def startup():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=4090)
+    port = int(os.environ.get("PORT", os.environ.get("WIKI_PORT", "4090")))
+    uvicorn.run(app, host="0.0.0.0", port=port)

@@ -99,7 +99,7 @@ app.get('/api/md-files', (req, res) => {
     } catch(_) {}
   }
   // Root-level MD files
-  const ROOT = '/root';
+  const ROOT = process.env.HOME || '/root';
   try {
     fs.readdirSync(ROOT).filter(f => f.endsWith('.md') && !f.startsWith('.')).sort().forEach(f => {
       results.push({ id: ROOT + '/' + f, name: f, dir: '~' });
@@ -112,7 +112,8 @@ app.get('/api/md-file', (req, res) => {
   const id = req.query.id;
   if (!id || !id.endsWith('.md')) return res.status(400).send('bad id');
   // Only allow reading from /root/ and /root/projects/
-  if (!id.startsWith(process.env.HOME + '/')) return res.status(403).send('forbidden');
+  const home = process.env.HOME || '/root';
+  if (!id.startsWith(home + '/')) return res.status(403).send('forbidden');
   try { res.send(fs.readFileSync(id, 'utf8')); }
   catch(e) { res.status(404).send(e.message); }
 });
@@ -120,7 +121,8 @@ app.get('/api/md-file', (req, res) => {
 app.post('/api/md-file', express.json(), (req, res) => {
   const { id, content } = req.body;
   if (!id || !id.endsWith('.md')) return res.status(400).json({ error: 'bad id' });
-  if (!id.startsWith(process.env.HOME + '/')) return res.status(403).json({ error: 'forbidden' });
+  const home = process.env.HOME || '/root';
+  if (!id.startsWith(home + '/')) return res.status(403).json({ error: 'forbidden' });
   try { fs.writeFileSync(id, content); res.json({ ok: true }); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -296,8 +298,15 @@ app.post('/api/slack-last', express.json(), (req, res) => {
     // Write to temp file to avoid shell escaping issues
     const tmp = `/tmp/slack-msg-${Date.now()}.txt`;
     fs.writeFileSync(tmp, msg);
-    const child = 
-    child.on('close', () => { try { fs.unlinkSync(tmp); } catch(_) {} });
+    // Slack notification is environment-specific; skip if notify script not found
+    const notifyCmd = process.env.NOTIFY_CMD || '';
+    if (notifyCmd && fs.existsSync(notifyCmd.split(' ')[0])) {
+      const child = spawn(notifyCmd.split(' ')[0], [...notifyCmd.split(' ').slice(1), msg], { stdio: 'ignore', detached: true });
+      child.unref();
+      child.on('close', () => { try { fs.unlinkSync(tmp); } catch(_) {} });
+    } else {
+      try { fs.unlinkSync(tmp); } catch(_) {}
+    }
     res.json({ ok: true });
   } catch(e) {
     res.json({ ok: false, error: e.message });

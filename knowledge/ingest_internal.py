@@ -3,7 +3,7 @@
 
 Scans ~/projects/ for .md files (max depth 2), skips symlinks and .bak files,
 and inserts them into the wiki as pre-compiled articles under the "Internal" category.
-Also ingests /root/GLOBAL.md.
+Also ingests ~/GLOBAL.md.
 
 Safe to run multiple times -- skips unchanged files (by mtime), updates changed ones.
 """
@@ -185,7 +185,7 @@ def run_ingest():
 
     # Also add all root-level MD files
     all_files = []
-    root_dir = Path("/root")
+    root_dir = Path.home()
     for md_file in sorted(root_dir.glob("*.md")):
         if md_file.is_symlink() or md_file.name.endswith(".bak"):
             continue

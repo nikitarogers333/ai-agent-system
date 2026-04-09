@@ -1,0 +1,14 @@
+[Unit]
+Description=Context Watcher (heartbeat -- auto-summarizes terminal activity)
+After=network.target
+
+[Service]
+Environment="PATH=/root/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/bin/bash /opt/agent-stack/heartbeat.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

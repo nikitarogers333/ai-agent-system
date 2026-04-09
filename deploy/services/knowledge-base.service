@@ -1,0 +1,14 @@
+[Unit]
+Description=Knowledge Base (Nikipedia)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/agent-stack/knowledge
+ExecStart=/usr/bin/python3 /opt/agent-stack/knowledge/server.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

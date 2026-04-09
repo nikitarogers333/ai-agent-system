@@ -1,0 +1,15 @@
+[Unit]
+Description=Device Gate Auth (Slack-based device approval)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/node /opt/agent-stack/device-gate/server.js
+WorkingDirectory=/opt/agent-stack/device-gate
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/agent-stack/.env
+
+[Install]
+WantedBy=multi-user.target

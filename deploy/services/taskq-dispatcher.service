@@ -1,0 +1,11 @@
+[Unit]
+Description=Task Queue Dispatcher
+After=network.target
+
+[Service]
+Type=oneshot
+Environment="PATH=/root/.local/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/opt/agent-stack/.env
+ExecStart=/bin/bash /opt/agent-stack/taskq/dispatcher.sh
+StandardOutput=journal
+StandardError=journal

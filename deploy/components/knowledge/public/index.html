@@ -1,0 +1,2450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nikipedia</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  :root {
+    --bg: #faf9f6;
+    --surface: #ffffff;
+    --border: #e2e0dc;
+    --text: #2d2d2d;
+    --text-secondary: #6b6b6b;
+    --accent: #4a6fa5;
+    --accent-light: #e8eef5;
+    --success: #4a9d5a;
+    --success-light: #e8f5ea;
+    --warning: #d4a843;
+    --warning-light: #fef8e8;
+    --error: #c45454;
+    --error-light: #fde8e8;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; max-width: 100%; overflow-wrap: break-word; word-wrap: break-word; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100dvh;
+  }
+
+  /* Header */
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; flex-direction: column; max-height: 100dvh; }
+  .content { -webkit-overflow-scrolling: touch; }
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header h1 {
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .header h1 span { color: var(--accent); }
+
+  /* Submit bar */
+  .submit-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .submit-bar input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 15px;
+    outline: none;
+    background: var(--bg);
+    transition: border-color 0.2s;
+  }
+  .submit-bar input:focus { border-color: var(--accent); }
+  .submit-bar input::placeholder { color: var(--text-secondary); }
+
+  /* Buttons */
+  .btn {
+    padding: 10px 18px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--border); }
+  .btn-success { background: var(--success); color: white; }
+  .btn-success:hover { filter: brightness(1.1); }
+  .btn-danger { background: var(--error); color: white; font-size: 12px; padding: 4px 10px; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2px;
+    flex-shrink: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 0;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    padding: 6px 8px;
+    font-size: 12px;
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab .badge {
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 400;
+  }
+  .tab .badge::before { content: '('; }
+  .tab .badge::after { content: ')'; }
+
+  /* Content area */
+  .content { padding: 12px; max-width: 900px; margin: 0 auto; flex: 1; overflow-y: auto; overflow-x: hidden; width: 100%; box-sizing: border-box; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    padding: 8px 4px;
+    margin-bottom: 0;
+    box-shadow: none;
+    cursor: pointer;
+  }
+  .card:hover { background: #f5f5f2; }
+  .card-title {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .card-preview {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Status badges */
+  .status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .status-pending { background: var(--warning-light); color: var(--warning); }
+  .status-ingested { background: var(--accent-light); color: var(--accent); }
+  .status-compiled { background: var(--success-light); color: var(--success); }
+  .status-error { background: var(--error-light); color: var(--error); }
+
+  /* Type icons */
+  .type-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .type-youtube { background: #fee; color: #c00; }
+  .type-github { background: #eee; color: #333; }
+  .type-article { background: #e8f0fe; color: #1a73e8; }
+  .type-file, .type-text { background: #f0f0f0; color: #555; }
+  .type-screenshot { background: #fef0e8; color: #e67e22; }
+  .type-arxiv { background: #f0e8fe; color: #7c3aed; }
+  .type-arxiv-feed { background: #b31b1b22; color: #b31b1b; }
+
+  /* arXiv paper cards */
+  .arxiv-paper { cursor: default; }
+  .arxiv-paper:hover { border-color: var(--accent); }
+  .arxiv-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+  .arxiv-tag {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: #f0e8fe;
+    color: #7c3aed;
+    font-weight: 600;
+  }
+  .arxiv-authors {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .arxiv-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    align-items: center;
+  }
+  .arxiv-actions a {
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .arxiv-actions a:hover { text-decoration: underline; }
+  .arxiv-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .arxiv-filters select, .arxiv-filters input {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 13px;
+    outline: none;
+    background: var(--surface);
+  }
+  .arxiv-filters input { flex: 1; min-width: 150px; }
+  .sim-card {
+    display: inline-block;
+    font-size: 12px;
+    padding: 4px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin: 3px;
+    cursor: pointer;
+  }
+  .sim-card:hover { border-color: var(--accent); }
+
+  /* Article view */
+  .article-view {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    box-shadow: var(--shadow);
+    overflow-x: hidden;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .article-view .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 16px;
+    border: none;
+    background: none;
+    padding: 0;
+  }
+  .article-view .back-btn:hover { text-decoration: underline; }
+
+  /* Markdown rendered content */
+  .md-content {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    overflow-x: hidden;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .md-content h1 { font-size: 24px; margin-bottom: 12px; }
+  .md-content h2 { font-size: 20px; margin-top: 24px; margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+  .md-content h3 { font-size: 16px; margin-top: 18px; margin-bottom: 6px; }
+  .md-content p { margin-bottom: 12px; }
+  .md-content ul, .md-content ol { margin-bottom: 12px; padding-left: 24px; }
+  .md-content li { margin-bottom: 4px; }
+  .md-content code {
+    background: #f4f4f4;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 13px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    word-break: break-all;
+  }
+  .md-content pre {
+    background: #f4f4f4;
+    padding: 14px;
+    border-radius: var(--radius);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 12px;
+    max-width: 100%;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .md-content pre code { background: none; padding: 0; word-break: normal; }
+  .md-content blockquote {
+    border-left: 3px solid var(--accent);
+    padding-left: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+  .md-content a { color: var(--accent); word-break: break-all; }
+  .md-content img { max-width: 100%; height: auto; }
+  .md-content table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+    font-size: 14px;
+  }
+  .md-content th, .md-content td {
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    text-align: left;
+  }
+  .md-content th { background: var(--bg); font-weight: 600; }
+  .md-content hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .md-content .wiki-link {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px dashed var(--accent);
+    cursor: pointer;
+  }
+  .md-content .wiki-link:hover { border-bottom-style: solid; }
+  .md-content .wiki-link.broken { color: var(--error); border-color: var(--error); }
+
+  /* Compile bar */
+  .compile-bar {
+    background: var(--accent-light);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .compile-bar .status-text {
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+    margin: 8px 16px 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-light);
+  }
+  .upload-zone input { display: none; }
+
+  /* Empty state */
+  .empty {
+    text-align: center;
+    padding: 48px 16px;
+    color: var(--text-secondary);
+  }
+  .empty h3 { margin-bottom: 8px; color: var(--text); }
+
+  /* Toast notifications */
+  .toast-container {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toast {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    font-size: 13px;
+    animation: slideIn 0.3s ease;
+    max-width: 320px;
+  }
+  .toast.success { border-left: 3px solid var(--success); }
+  .toast.error { border-left: 3px solid var(--error); }
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .header h1 { font-size: 16px; }
+    .submit-bar { padding: 10px 12px; }
+    .content { padding: 8px; }
+    .tab { padding: 10px 14px; font-size: 13px; }
+    .article-view { padding: 10px; }
+    .md-content h1 { font-size: 20px; }
+    .md-content h2 { font-size: 17px; }
+    .md-content pre { padding: 10px; font-size: 12px; }
+    .md-content table { font-size: 12px; }
+    .md-content th, .md-content td { padding: 4px 6px; }
+  }
+
+  /* Loading spinner */
+  .spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Category chips */
+  .category-bar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cat-chip {
+    padding: 4px 12px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    transition: all 0.15s;
+  }
+  .cat-chip:hover, .cat-chip.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  .cat-chip .count {
+    opacity: 0.7;
+    margin-left: 4px;
+  }
+
+  .actions-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  .delete-btn {
+    margin-left: auto;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .card:hover .delete-btn { opacity: 1; }
+
+  /* Feed items */
+  .feed-item {
+    background: var(--surface);
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    padding: 8px 4px;
+    margin-bottom: 0;
+    box-shadow: none;
+  }
+  .feed-item:hover { background: #f5f5f2; }
+  .feed-item-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .feed-item-title {
+    font-weight: 600;
+    font-size: 14px;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .feed-item-title a {
+    color: var(--text);
+    text-decoration: none;
+  }
+  .feed-item-title a:hover { color: var(--accent); }
+  .feed-item-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .feed-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .source-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .source-badge.yt { background: #fee; color: #c00; }
+  .source-badge.arxiv { background: #f0e8fe; color: #7c3aed; }
+  .source-badge.github { background: #eee; color: #333; }
+  .source-badge.hn { background: #fff3e0; color: #ff6600; }
+  .source-badge.web { background: #e8f0fe; color: #1a73e8; }
+
+  .save-btn {
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--success);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .save-btn:hover { background: var(--success-light); border-color: var(--success); }
+  .save-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Council chat */
+  .council-msg-wrap {
+    padding: 4px 0;
+  }
+  .council-msg-header {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .council-msg-author {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .council-msg-author.atlas { color: #e06c75; }
+  .council-msg-author.spark { color: #5b8def; }
+  .council-msg-author.niki { color: #5dbb5d; }
+  .council-msg-author.system { color: #888; font-style: italic; }
+  .council-msg-author.session { color: #c678dd; }
+  .council-source-badge {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: #333;
+    color: #888;
+    margin-left: 4px;
+  }
+  .council-source-badge.tmux { background: #1a2a1a; color: #4ade80; }
+  .council-source-badge.research_loop { background: #1a1a2a; color: #818cf8; }
+  .council-source-badge.system { background: #2a2a1a; color: #fbbf24; }
+  .council-session-bar {
+    display: flex;
+    gap: 6px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .council-session-chip {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #222;
+    color: #aaa;
+    cursor: pointer;
+  }
+  .council-session-chip:hover { background: #333; }
+  .council-session-chip.active { background: #1a2a1a; color: #4ade80; }
+  .mention-dropdown {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 100;
+    min-width: 160px;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.4);
+    display: none;
+  }
+  .mention-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mention-item:hover, .mention-item.selected {
+    background: #333;
+  }
+  .mention-item .mention-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .council-msg-time {
+    font-size: 10px;
+    color: var(--text-secondary);
+  }
+  .council-msg {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text);
+    word-wrap: break-word;
+    padding: 0;
+  }
+  .council-typing {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .council-typing .dots span {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+    animation: typingBounce 1.2s infinite;
+  }
+  .council-typing .dots span:nth-child(2) { animation-delay: 0.2s; }
+  .council-typing .dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-4px); }
+  }
+</style>
+</head>
+<body>
+
+<div class="tabs">
+  <button class="tab active" data-tab="niki" onclick="switchTab('niki')">
+    Niki <span class="badge" id="nikiBadge">0</span>
+  </button>
+  <button class="tab" data-tab="wiki" onclick="switchTab('wiki')">
+    Wiki <span class="badge" id="wikiBadge">0</span>
+  </button>
+  <button class="tab" data-tab="council" onclick="switchTab('council')">
+    Chat
+  </button>
+  <button class="tab" data-tab="loops" onclick="switchTab('loops')">
+    Loops
+  </button>
+  <button class="tab" data-tab="research" onclick="switchTab('research')">
+    Search
+  </button>
+  <button class="tab" onclick="window.open('http://'+location.hostname+':4021/terminal','_blank')" style="font-size:14px;margin-left:auto">&larr;</button>
+</div>
+
+<div class="content" id="nikiTab">
+  <div style="margin-bottom:12px">
+    <input type="text" id="nikiSearchInput" placeholder="Search internal files..." oninput="handleNikiSearch(this.value)"
+      style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;outline:none;background:var(--surface)">
+  </div>
+  <div id="nikiSearchResults" style="display:none"></div>
+  <div id="nikiCategoryBar" style="margin-bottom:12px"></div>
+  <div id="nikiList"></div>
+</div>
+
+<div class="content" id="wikiTab" style="display:none">
+  <div style="margin-bottom:12px">
+    <input type="text" id="searchInput" placeholder="Search articles..." oninput="handleSearch(this.value)"
+      style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;outline:none;background:var(--surface)">
+  </div>
+  <div id="searchResults" style="display:none"></div>
+  <div id="projectBar" style="margin-bottom:12px"></div>
+  <div id="wikiList"></div>
+</div>
+
+<div class="content" id="researchTab" style="display:none">
+  <!-- Add source -->
+  <div style="margin-bottom:12px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <input type="text" id="urlInput" placeholder="Paste URL to ingest..." autocomplete="off" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;outline:none;background:var(--bg)">
+      <button class="btn btn-primary btn-sm" onclick="submitUrl()">Add</button>
+    </div>
+    <div style="padding:6px;text-align:center;border:1px dashed var(--border);border-radius:var(--radius);font-size:12px;color:var(--text-secondary);cursor:pointer" onclick="document.getElementById('fileInput').click()">
+      Drop or tap to upload file
+      <input type="file" id="fileInput" multiple onchange="handleFiles(this.files)" style="display:none">
+    </div>
+  </div>
+  <!-- Search section -->
+  <div style="margin-bottom:10px">
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input type="text" id="researchQuery" placeholder="Search all sources..." style="flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;outline:none;background:var(--bg)">
+      <button class="btn btn-primary btn-sm" onclick="runMultiSearch()">Research</button>
+    </div>
+    <div id="sourceChips" style="display:none">
+      <span class="cat-chip active" data-src="youtube">YT</span>
+      <span class="cat-chip active" data-src="arxiv">arXiv</span>
+      <span class="cat-chip active" data-src="github">GitHub</span>
+      <span class="cat-chip active" data-src="web">Web</span>
+    </div>
+    <input type="number" id="researchCount" value="10" style="display:none">
+    <div id="researchStatus" style="font-size:13px;color:var(--text-secondary);margin-bottom:8px"></div>
+    <div id="searchResultsMulti"></div>
+  </div>
+
+  <!-- Feed section -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <h2 style="font-size:16px;font-weight:700">Feed</h2>
+    <div style="display:flex;gap:6px;align-items:center">
+      <span id="feedSourceFilter" style="display:flex;gap:4px">
+        <span class="cat-chip active" data-feed="all" onclick="filterFeed('all',this)">All</span>
+        <span class="cat-chip" data-feed="arxiv" onclick="filterFeed('arxiv',this)">arXiv</span>
+        <span class="cat-chip" data-feed="github" onclick="filterFeed('github',this)">GH</span>
+        <span class="cat-chip" data-feed="web" onclick="filterFeed('web',this)">Web</span>
+      </span>
+      <button class="btn btn-secondary btn-sm" onclick="refreshFeed()" title="Refresh feed">Refresh</button>
+    </div>
+  </div>
+  <div id="feedList"></div>
+
+  <!-- arXiv detail view (hidden by default, shown when viewing a paper) -->
+  <div id="arxivDetailView" style="display:none"></div>
+</div>
+
+<div class="content" id="councilTab" style="display:none;padding:0;max-width:none;flex:1;flex-direction:column;overflow:hidden">
+  <div id="councilSessionBar" class="council-session-bar">
+    <span style="font-size:11px;color:#666">Sessions:</span>
+  </div>
+  <div id="councilFeed" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px"></div>
+  <div id="councilTyping" style="padding:4px 16px;font-size:12px;color:var(--text-secondary);min-height:20px"></div>
+  <div style="padding:10px 16px;border-top:1px solid var(--border);background:var(--surface);display:flex;gap:8px;align-items:center;position:relative">
+    <div id="mentionDropdown" class="mention-dropdown"></div>
+    <input type="text" id="councilInput" placeholder="Message all, or @session to target..." autocomplete="off"
+      style="flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);font-size:15px;outline:none;background:var(--bg)">
+    <button class="btn btn-primary" id="councilSend" onclick="sendCouncilMessage()">Send</button>
+    <button class="btn btn-secondary btn-sm" onclick="clearCouncil()" title="Clear all messages" style="font-size:12px;padding:8px 10px">Clear</button>
+  </div>
+</div>
+
+<!-- Queue tab removed: auto-compile handles everything -->
+<div id="queueTab" style="display:none"><div id="queueList"></div></div>
+<span id="queueBadge" style="display:none">0</span>
+
+<div class="content" id="treeTab" style="display:none">
+  <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+    <button class="btn btn-primary btn-sm" onclick="loadTree()" style="font-size:13px">Refresh</button>
+    <button class="btn btn-sm" onclick="buildGraph()" style="font-size:13px;background:var(--surface);border:1px solid var(--border);color:var(--text)">Build Graph</button>
+    <span id="treeSummary" style="color:var(--text-secondary);font-size:12px"></span>
+  </div>
+  <div id="treeSearch" style="margin-bottom:12px">
+    <input type="text" id="treeSearchInput" placeholder="Filter tree..." oninput="filterTreeSearch(this.value)"
+      style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;outline:none;background:var(--surface);color:var(--text)">
+  </div>
+  <div id="treeContainer" style="width:100%"></div>
+</div>
+
+<div class="content" id="loopsTab" style="display:none">
+  <div id="loopsControls" style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+    <button class="btn btn-primary btn-sm" onclick="loadLoops()" style="font-size:13px">Refresh</button>
+    <span id="loopsSummary" style="color:var(--text-secondary);font-size:13px"></span>
+  </div>
+  <div id="loopsList"></div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+  // State
+  let currentTab = 'wiki';
+  let entries = [];
+  let articles = [];
+  let viewingArticle = null;
+  let pollInterval = null;
+
+  // Marked config
+  marked.setOptions({ breaks: true, gfm: true });
+
+  // Custom renderer for [[wiki links]]
+  function renderWikiLinks(html) {
+    return html.replace(/\[\[(.+?)\]\]/g, (match, title) => {
+      const slug = slugify(title);
+      const exists = articles.some(a => a.slug === slug || a.title.toLowerCase() === title.toLowerCase());
+      const cls = exists ? 'wiki-link' : 'wiki-link broken';
+      return `<a class="${cls}" onclick="openArticleByTitle('${title.replace(/'/g, "\\'")}'); return false;" href="#">${title}</a>`;
+    });
+  }
+
+  function slugify(title) {
+    return title.toLowerCase().trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .substring(0, 80);
+  }
+
+  // API helpers
+  async function api(path, opts = {}) {
+    const resp = await fetch(path, opts);
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(text);
+    }
+    return resp.json();
+  }
+
+  // Submit URL
+  async function submitUrl() {
+    const input = document.getElementById('urlInput');
+    const url = input.value.trim();
+    if (!url) return;
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    try {
+      await api('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      input.value = '';
+      toast('URL submitted for ingestion', 'success');
+      switchTab('queue');
+      loadEntries();
+      startPolling();
+    } catch (e) {
+      toast('Failed: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Add';
+    }
+  }
+
+  // Enter key to submit
+  document.getElementById('urlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitUrl();
+  });
+
+  // File upload
+  async function handleFiles(files) {
+    for (const file of files) {
+      const form = new FormData();
+      form.append('file', file);
+      try {
+        await api('/api/upload', { method: 'POST', body: form });
+        toast(`Uploaded: ${file.name}`, 'success');
+      } catch (e) {
+        toast(`Upload failed: ${e.message}`, 'error');
+      }
+    }
+    loadEntries();
+  }
+
+  // Drag and drop
+  const zone = document.getElementById('uploadZone') || document.getElementById('addPanel');
+  if (zone) {
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      handleFiles(e.dataTransfer.files);
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    const panel = document.getElementById('addPanel');
+    const toggle = document.getElementById('addToggle');
+    if (panel && panel.style.display !== 'none' && !panel.contains(e.target) && e.target !== toggle) {
+      panel.style.display = 'none';
+    }
+  });
+
+  let categories = {};
+  let activeCategory = null;
+
+  // Tab switching
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    document.getElementById('nikiTab').style.display = tab === 'niki' ? '' : 'none';
+    document.getElementById('wikiTab').style.display = tab === 'wiki' ? '' : 'none';
+    document.getElementById('councilTab').style.display = tab === 'council' ? 'flex' : 'none';
+    document.getElementById('queueTab').style.display = tab === 'queue' ? '' : 'none';
+    document.getElementById('researchTab').style.display = tab === 'research' ? '' : 'none';
+    document.getElementById('loopsTab').style.display = tab === 'loops' ? '' : 'none';
+
+    if (tab === 'loops') {
+      loadLoops();
+    } else if (tab === 'niki') {
+      viewingArticle = null;
+      loadArticles().then(() => renderNikiList());
+    } else if (tab === 'wiki') {
+      viewingArticle = null;
+      loadArticles();
+      loadCategories();
+    } else if (tab === 'council') {
+      loadCouncilMessages();
+      loadCouncilSessions();
+      connectCouncilSSE();
+    } else if (tab === 'queue') {
+      loadEntries();
+    } else if (tab === 'research') {
+      loadFeed();
+    }
+  }
+
+  // ---- Tree tab ----
+  let treeRawData = null;
+  let treeBreadcrumb = [];
+
+  const treeCatColors = {
+    'Trading': '#00e676', 'AI & Technology': '#b388ff', 'Business & Strategy': '#448aff',
+    'People & Companies': '#18ffff', 'Projects & Tools': '#ff9100', 'Reference': '#888'
+  };
+
+  async function loadTree() {
+    try {
+      const resp = await fetch('/api/graph/tree');
+      const data = await resp.json();
+      treeRawData = data.tree || {};
+      document.getElementById('treeSummary').textContent = (data.stats?.articles || 0) + ' articles, ' + (data.stats?.categories || 0) + ' categories';
+      treeBreadcrumb = [];
+      renderTreeLevel(treeRawData, []);
+    } catch(e) {
+      document.getElementById('treeContainer').innerHTML = '<div style="padding:24px;color:var(--text-secondary)">No tree data. Click "Build Graph" to generate.</div>';
+    }
+  }
+
+  function countInNode(node) {
+    let c = (node.__articles__ || []).length;
+    for (const k in node) {
+      if (k !== '__articles__' && typeof node[k] === 'object') c += countInNode(node[k]);
+    }
+    return c;
+  }
+
+  function renderTreeLevel(node, path) {
+    const container = document.getElementById('treeContainer');
+    treeBreadcrumb = path;
+
+    // Breadcrumb
+    let breadHTML = '<div style="display:flex;align-items:center;gap:4px;margin-bottom:12px;flex-wrap:wrap">';
+    breadHTML += '<span onclick="drillTree([])" style="cursor:pointer;color:var(--accent);font-size:13px">Root</span>';
+    for (let i = 0; i < path.length; i++) {
+      const subpath = path.slice(0, i + 1);
+      breadHTML += '<span style="color:var(--text-secondary);font-size:11px"> / </span>';
+      breadHTML += '<span onclick="drillTree(' + JSON.stringify(subpath).replace(/"/g, "'") + ')" style="cursor:pointer;color:var(--accent);font-size:13px">' + path[i] + '</span>';
+    }
+    breadHTML += '</div>';
+
+    // Collect subcategories and articles at this level
+    const subcats = [];
+    const articles = node.__articles__ || [];
+
+    for (const k in node) {
+      if (k !== '__articles__' && typeof node[k] === 'object') {
+        subcats.push({ name: k, node: node[k], count: countInNode(node[k]) });
+      }
+    }
+    subcats.sort((a, b) => b.count - a.count);
+
+    let html = breadHTML;
+
+    // Render subcategories as tappable cards
+    if (subcats.length) {
+      html += subcats.map(sc => {
+        const color = treeCatColors[sc.name] || (path.length === 0 ? '#888' : treeCatColors[path[0]] || '#888');
+        const newPath = JSON.stringify([...path, sc.name]).replace(/"/g, "'");
+        const subArticles = sc.node.__articles__ || [];
+        const subSubCount = Object.keys(sc.node).filter(k => k !== '__articles__').length;
+        const hasChildren = subSubCount > 0 || subArticles.length > 0;
+
+        return '<div onclick="drillTree(' + newPath + ')" style="' +
+          'display:flex;align-items:center;gap:10px;padding:14px 12px;' +
+          'border-bottom:1px solid var(--border);cursor:pointer;' +
+          'transition:background 0.15s' +
+          '" onmouseenter="this.style.background=\'rgba(255,255,255,0.03)\'" onmouseleave="this.style.background=\'none\'">' +
+          '<span style="width:8px;height:8px;border-radius:2px;background:' + color + ';flex-shrink:0"></span>' +
+          '<div style="flex:1">' +
+            '<div style="font-size:14px;font-weight:500">' + sc.name + '</div>' +
+            (subSubCount > 0 ? '<div style="font-size:11px;color:var(--text-secondary)">' + subSubCount + ' subtopic' + (subSubCount !== 1 ? 's' : '') + '</div>' : '') +
+          '</div>' +
+          '<span style="color:var(--text-secondary);font-size:12px">' + sc.count + '</span>' +
+          (hasChildren ? '<span style="color:var(--text-secondary);font-size:10px">&#9654;</span>' : '') +
+        '</div>';
+      }).join('');
+    }
+
+    // Render articles at this level
+    if (articles.length) {
+      if (subcats.length) html += '<div style="height:8px"></div>';
+      html += articles.map(a => {
+        const slug = a.slug || '';
+        return '<div onclick="openTreeArticle(\'' + slug + '\')" style="padding:12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s" onmouseenter="this.style.background=\'rgba(255,255,255,0.03)\'" onmouseleave="this.style.background=\'none\'">' +
+          '<div style="display:flex;align-items:baseline;gap:8px">' +
+            '<span style="color:var(--accent);font-size:8px">&#9679;</span>' +
+            '<span style="flex:1;font-size:13px">' + a.title + '</span>' +
+            '<span style="color:var(--text-secondary);font-size:10px">&#9654;</span>' +
+          '</div>' +
+          (a.preview ? '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px;margin-left:16px;line-height:1.4">' + a.preview + '</div>' : '') +
+        '</div>';
+      }).join('');
+    }
+
+    if (!subcats.length && !articles.length) {
+      html += '<div style="padding:24px;text-align:center;color:var(--text-secondary)">Empty branch</div>';
+    }
+
+    container.innerHTML = html;
+  }
+
+  function drillTree(path) {
+    if (!treeRawData) return;
+    // Parse path (might come as string from onclick)
+    if (typeof path === 'string') {
+      try { path = JSON.parse(path.replace(/'/g, '"')); } catch(e) { path = []; }
+    }
+    let node = treeRawData;
+    for (const seg of path) {
+      if (node[seg]) node = node[seg];
+      else return;
+    }
+    renderTreeLevel(node, path);
+  }
+
+  function toggleTreeArticle(el) {
+    const body = el.nextElementSibling;
+    if (body) body.style.display = body.style.display === 'none' ? 'block' : 'none';
+  }
+
+  async function openTreeArticle(slug) {
+    const container = document.getElementById('treeContainer');
+    try {
+      const article = await api('/api/wiki/' + slug);
+      const rendered = renderWikiLinks(marked.parse(article.content || ''));
+      const isInternal = slug.startsWith('internal-');
+      const editBtn = isInternal ? '<button class="btn btn-secondary btn-sm" onclick="editTreeArticle(\'' + slug + '\')" style="margin-left:auto">Edit</button>' : '';
+      container.innerHTML =
+        '<div style="padding:0">' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' +
+            '<button class="back-btn" onclick="drillTree(' + JSON.stringify(treeBreadcrumb).replace(/"/g, "'") + ')" style="margin-bottom:0">&larr; Back</button>' +
+            editBtn +
+          '</div>' +
+          '<div class="md-content" id="tree-article-content">' + rendered + '</div>' +
+        '</div>';
+    } catch(e) {
+      container.innerHTML = '<div style="padding:24px;color:var(--text-secondary)">Article not found</div>';
+    }
+  }
+
+  async function editTreeArticle(slug) {
+    const container = document.getElementById('treeContainer');
+    try {
+      const article = await api('/api/wiki/' + slug);
+      container.innerHTML =
+        '<div style="padding:0">' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' +
+            '<button class="back-btn" onclick="openTreeArticle(\'' + slug + '\')" style="margin-bottom:0">&larr; Cancel</button>' +
+            '<button class="btn btn-success btn-sm" onclick="saveTreeArticle(\'' + slug + '\')" style="margin-left:auto">Save</button>' +
+          '</div>' +
+          '<textarea id="tree-article-editor" style="width:100%;min-height:60vh;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;font-family:monospace;font-size:13px;color:var(--text);resize:vertical;outline:none;line-height:1.6">' +
+          article.content.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+          '</textarea>' +
+        '</div>';
+      document.getElementById('tree-article-editor').focus();
+    } catch(e) {
+      container.innerHTML = '<div style="padding:24px;color:var(--text-secondary)">Failed to load</div>';
+    }
+  }
+
+  async function saveTreeArticle(slug) {
+    const content = document.getElementById('tree-article-editor').value;
+    try {
+      await fetch('/api/wiki/' + slug, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ content })
+      });
+      openTreeArticle(slug);
+    } catch(e) {
+      alert('Save failed');
+    }
+  }
+
+  function filterTreeSearch(query) {
+    if (!treeRawData || !query) { renderTreeLevel(treeRawData, []); return; }
+    query = query.toLowerCase();
+
+    // Search all articles in tree
+    const results = [];
+    function search(node, path) {
+      if (node.__articles__) {
+        node.__articles__.forEach(a => {
+          if (a.title.toLowerCase().includes(query) || (a.preview || '').toLowerCase().includes(query)) {
+            results.push({ ...a, path: path.join(' / ') });
+          }
+        });
+      }
+      for (const k in node) {
+        if (k !== '__articles__' && typeof node[k] === 'object') search(node[k], [...path, k]);
+      }
+    }
+    search(treeRawData, []);
+
+    const container = document.getElementById('treeContainer');
+    if (!results.length) {
+      container.innerHTML = '<div style="padding:24px;color:var(--text-secondary)">No results for "' + query + '"</div>';
+      return;
+    }
+    container.innerHTML = results.map(a =>
+      '<div onclick="openTreeArticle(\'' + (a.slug || '') + '\')" style="padding:12px;border-bottom:1px solid var(--border);cursor:pointer" onmouseenter="this.style.background=\'rgba(255,255,255,0.03)\'" onmouseleave="this.style.background=\'none\'">' +
+        '<div style="font-size:13px">' + a.title + '</div>' +
+        '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">' + a.path + '</div>' +
+        (a.preview ? '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;opacity:0.7">' + a.preview + '</div>' : '') +
+      '</div>'
+    ).join('');
+  }
+
+  async function buildGraph() {
+    document.getElementById('treeSummary').textContent = 'Building tree (this takes a few minutes)...';
+    try {
+      const resp = await fetch('/api/graph/extract', {method: 'POST'});
+      const data = await resp.json();
+      document.getElementById('treeSummary').textContent = data.returncode === 0 ? 'Done! Loading...' : 'Error';
+      loadTree();
+    } catch(e) {
+      document.getElementById('treeSummary').textContent = 'Error: ' + e.message;
+    }
+  }
+
+  // ---- Loops tab ----
+  async function loadLoops() {
+    try {
+      const data = await api('/api/loops');
+      renderLoops(data);
+    } catch (e) {
+      document.getElementById('loopsList').innerHTML = '<p style="color:var(--text-secondary)">Failed to load loops</p>';
+    }
+  }
+
+  function renderLoops(data) {
+    const list = document.getElementById('loopsList');
+    const summary = document.getElementById('loopsSummary');
+    const projects = data.projects || [];
+    const running = projects.filter(p => p.running).length;
+    summary.textContent = running + ' running, ' + projects.length + ' total';
+
+    if (!projects.length) {
+      list.innerHTML = '<p style="color:var(--text-secondary)">No project loops found. Start one with: loop start &lt;project&gt;</p>';
+      return;
+    }
+
+    list.innerHTML = projects.map((p, idx) => {
+      const statusColor = p.running ? 'var(--accent)' : 'var(--text-secondary)';
+      const statusText = p.running ? 'running' : 'stopped';
+      const rows = (p.rows || []).slice(-20);
+      const getAct = r => {
+        const a = r.action_taken || r.action || '';
+        if (a && a !== 'unknown') return a;
+        // Fallback: if phase column has action text (mixed format TSV)
+        const ph = r.phase || '';
+        if (ph && ph !== 'full' && ph !== 'PLAN' && ph !== 'BUILD' && ph !== 'TEST' && ph !== 'FAILED') return ph;
+        return a;
+      };
+      const lastAction = rows.length ? getAct(rows[rows.length - 1]) : '';
+      const lastActionShort = lastAction.length > 60 ? lastAction.slice(0, 60) + '...' : lastAction;
+      const hasHuman = rows.some(r => r.human_action && r.human_action !== 'none' && r.human_action !== 'None');
+
+      let tableHTML = '';
+      if (rows.length) {
+        tableHTML = '<div id="loop-body-' + idx + '" style="display:none;overflow-x:auto;margin-top:8px">' +
+          '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+          '<tr style="border-bottom:1px solid var(--border)">' +
+          '<th style="text-align:left;padding:4px 6px;color:var(--text-secondary);width:70px"></th>' +
+          '<th style="text-align:left;padding:4px 6px;color:var(--text-secondary)">Action</th>' +
+          '</tr>' +
+          rows.map(r => {
+            const hasHuman = r.human_action && r.human_action !== 'none' && r.human_action !== 'None';
+            const revenue = (r.revenue_impact || '').split(' ')[0] || '';
+            const act = getAct(r);
+            const actionShort = act.length > 140 ? act.slice(0, 140) + '...' : act;
+            return '<tr style="border-bottom:1px solid var(--border)">' +
+              '<td style="padding:6px;color:var(--text-secondary);font-size:10px;vertical-align:top;white-space:nowrap">#' + (r.iteration || '') + '<br>' + (r.timestamp || '').slice(5, 16) + (revenue ? '<br>' + revenue : '') + '</td>' +
+              '<td style="padding:6px;font-size:12px;vertical-align:top">' + actionShort + (hasHuman ? '<br><span style="color:#e5c07b;font-size:10px">Nik: ' + r.human_action + '</span>' : '') + '</td>' +
+              '</tr>';
+          }).join('') +
+          '</table></div>';
+      }
+
+      return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px;cursor:pointer" onclick="toggleLoopCard(' + idx + ')">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+        '<span id="loop-chevron-' + idx + '" style="color:var(--text-secondary);font-size:10px;transition:transform 0.2s">&#9654;</span>' +
+        '<strong style="font-size:15px">' + p.project + '</strong>' +
+        '<span style="color:var(--text-secondary);font-size:12px">' + p.iterations + '</span>' +
+        (hasHuman ? '<span style="color:#e5c07b;font-size:10px">&#9679;</span>' : '') +
+        '</div>' +
+        '<span style="color:' + statusColor + ';font-size:12px">' + statusText + '</span>' +
+        '</div>' +
+        (lastActionShort ? '<div style="color:var(--text-secondary);font-size:12px;margin-top:4px;margin-left:18px">' + lastActionShort + '</div>' : '') +
+        tableHTML +
+        '</div>';
+    }).join('');
+  }
+
+  function toggleLoopCard(idx) {
+    const body = document.getElementById('loop-body-' + idx);
+    const chevron = document.getElementById('loop-chevron-' + idx);
+    if (!body) return;
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : 'block';
+    chevron.style.transform = open ? '' : 'rotate(90deg)';
+  }
+
+  // Load entries
+  async function loadEntries() {
+    try {
+      entries = await api('/api/entries');
+      renderQueue();
+    } catch (e) {
+      console.error('Failed to load entries:', e);
+    }
+  }
+
+  // Load articles
+  async function loadArticles() {
+    try {
+      articles = await api('/api/wiki');
+      const internal = articles.filter(a => (a.slug || '').startsWith('internal-'));
+      const external = articles.filter(a => !(a.slug || '').startsWith('internal-'));
+      document.getElementById('nikiBadge').textContent = internal.length;
+      document.getElementById('wikiBadge').textContent = external.length;
+      if (currentTab === 'wiki' && !viewingArticle) renderWikiList();
+      if (currentTab === 'niki' && !viewingArticle) renderNikiList();
+    } catch (e) {
+      console.error('Failed to load articles:', e);
+    }
+  }
+
+  // Render queue
+  function renderQueue() {
+    const list = document.getElementById('queueList');
+    const pending = entries.filter(e => e.status !== 'compiled');
+    const compiled = entries.filter(e => e.status === 'compiled');
+    document.getElementById('queueBadge').textContent = pending.length;
+
+    // Show pending/error first, then last 5 compiled
+    const shown = [...pending, ...compiled.slice(-5).reverse()];
+    if (shown.length === 0) {
+      list.innerHTML = '<div class="empty"><h3>Queue is empty</h3><p>All materials compiled</p></div>';
+      return;
+    }
+
+    list.innerHTML = shown.map(e => `
+      <div class="card" onclick="viewEntry(${e.id})">
+        <div class="card-title">
+          <span class="type-icon type-${e.type}">${typeIcon(e.type)}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(e.title || e.source)}</span>
+          <span class="status status-${e.status}">${e.status}</span>
+          <button class="btn btn-danger delete-btn" onclick="event.stopPropagation();deleteEntry(${e.id})">x</button>
+        </div>
+        <div class="card-meta">
+          <span>${e.type}</span>
+          <span>${timeAgo(e.created_at)}</span>
+          ${e.error ? `<span style="color:var(--error)">${esc(e.error.substring(0, 80))}</span>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Render wiki list (external only -- internal shows in Niki tab)
+  let activeProjectFilter = null;
+
+  function renderWikiList() {
+    const list = document.getElementById('wikiList');
+    const bar = document.getElementById('projectBar');
+
+    const external = articles.filter(a => !(a.slug || '').startsWith('internal-'));
+
+    // Build project groups from tags
+    const projectGroups = {};
+    let untagged = [];
+    external.forEach(a => {
+      let tags = [];
+      try { tags = JSON.parse(a.tags || '[]'); } catch(e) {}
+      if (tags.length === 0) {
+        untagged.push(a);
+      } else {
+        tags.forEach(t => {
+          if (!projectGroups[t]) projectGroups[t] = [];
+          projectGroups[t].push(a);
+        });
+      }
+    });
+
+    // Render project filter dropdown
+    const projects = Object.keys(projectGroups).sort();
+    bar.innerHTML = `<select onchange="filterWikiProject(this.value || null)" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text);outline:none;cursor:pointer">
+      <option value="" ${!activeProjectFilter ? 'selected' : ''}>All projects (${external.length})</option>
+      ${projects.map(p => `<option value="${esc(p)}" ${activeProjectFilter === p ? 'selected' : ''}>${esc(p)} (${projectGroups[p].length})</option>`).join('')}
+      ${untagged.length ? `<option value="_untagged" ${activeProjectFilter === '_untagged' ? 'selected' : ''}>untagged (${untagged.length})</option>` : ''}
+    </select>`;
+
+    // Filter
+    let filtered;
+    if (activeProjectFilter === '_untagged') {
+      filtered = untagged;
+    } else if (activeProjectFilter && projectGroups[activeProjectFilter]) {
+      filtered = projectGroups[activeProjectFilter];
+    } else {
+      filtered = external;
+    }
+
+    if (filtered.length === 0) {
+      list.innerHTML = activeProjectFilter
+        ? `<div class="empty"><h3>No articles in "${activeProjectFilter}"</h3></div>`
+        : '<div class="empty"><h3>Wiki is empty</h3><p>Submit some materials and hit Compile to generate articles</p></div>';
+      return;
+    }
+
+    list.innerHTML = filtered.map(a => {
+      let tags = [];
+      try { tags = JSON.parse(a.tags || '[]'); } catch(e) {}
+      const tagHTML = tags.length ? '<div style="margin-top:4px">' + tags.map(t =>
+        `<span style="display:inline-block;padding:1px 6px;margin-right:4px;border-radius:3px;font-size:10px;background:var(--border);color:var(--text-secondary)">${esc(t)}</span>`
+      ).join('') + '</div>' : '';
+      return `
+      <div class="card" onclick="openArticle('${a.slug}')">
+        <div class="card-title">
+          ${esc(a.title)}
+          <button class="btn btn-danger delete-btn" onclick="event.stopPropagation();deleteArticle('${a.slug}')">x</button>
+        </div>
+        <div class="card-preview">${esc(a.preview || '')}</div>
+        <div class="card-meta">
+          <span>Updated ${timeAgo(a.updated_at)}</span>
+          ${tagHTML}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function filterWikiProject(p) {
+    activeProjectFilter = p || null;
+    renderWikiList();
+  }
+
+  let activeNikiCategory = null;
+
+  // Render Niki (internal) list
+  function renderNikiList() {
+    const list = document.getElementById('nikiList');
+    const bar = document.getElementById('nikiCategoryBar');
+    const internal = articles.filter(a => (a.slug || '').startsWith('internal-'));
+    document.getElementById('nikiBadge').textContent = internal.length;
+    const external = articles.filter(a => !(a.slug || '').startsWith('internal-'));
+    document.getElementById('wikiBadge').textContent = external.length;
+
+    if (internal.length === 0) {
+      bar.innerHTML = '';
+      list.innerHTML = '<div class="empty"><h3>No internal files yet</h3></div>';
+      return;
+    }
+
+    // Build project groups
+    const groups = {};
+    internal.forEach(a => {
+      const parts = (a.title || '').split('/');
+      const project = parts.length > 1 ? parts[0] : 'other';
+      if (!groups[project]) groups[project] = [];
+      groups[project].push(a);
+    });
+
+    // Render category dropdown
+    const projects = Object.keys(groups).sort();
+    bar.innerHTML = `<select onchange="filterNikiCategory(this.value || null)" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text);outline:none;cursor:pointer">
+      <option value="" ${!activeNikiCategory ? 'selected' : ''}>All projects (${internal.length})</option>
+      ${projects.map(p => `<option value="${esc(p)}" ${activeNikiCategory === p ? 'selected' : ''}>${esc(p)} (${groups[p].length})</option>`).join('')}
+    </select>`;
+
+    // Filter by selected project
+    if (activeNikiCategory && groups[activeNikiCategory]) {
+      list.innerHTML = groups[activeNikiCategory].map(a => {
+        const fname = (a.title || '').split('/').pop() || a.title;
+        return `
+          <div class="card" onclick="openArticle('${a.slug}')">
+            <div class="card-title">${esc(fname)}</div>
+            <div class="card-meta"><span>Updated ${timeAgo(a.updated_at)}</span></div>
+          </div>`;
+      }).join('');
+    } else {
+      // Show all, grouped by project with headers
+      let html = '';
+      projects.forEach(project => {
+        html += `<div style="margin-bottom:4px;margin-top:16px;padding-bottom:6px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em">${esc(project)}</div>`;
+        groups[project].forEach(a => {
+          const fname = (a.title || '').split('/').pop() || a.title;
+          html += `
+            <div class="card" onclick="openArticle('${a.slug}')">
+              <div class="card-title">${esc(fname)}</div>
+              <div class="card-meta"><span>Updated ${timeAgo(a.updated_at)}</span></div>
+            </div>`;
+        });
+      });
+      list.innerHTML = html;
+    }
+  }
+
+  function filterNikiCategory(cat) {
+    activeNikiCategory = cat;
+    renderNikiList();
+  }
+
+  // Niki search
+  function handleNikiSearch(q) {
+    const results = document.getElementById('nikiSearchResults');
+    const list = document.getElementById('nikiList');
+    if (!q.trim()) { results.style.display = 'none'; list.style.display = ''; return; }
+    const internal = articles.filter(a => (a.slug || '').startsWith('internal-'));
+    const matches = internal.filter(a => (a.title || '').toLowerCase().includes(q.toLowerCase()) || (a.preview || '').toLowerCase().includes(q.toLowerCase()));
+    results.style.display = '';
+    list.style.display = 'none';
+    if (matches.length === 0) { results.innerHTML = '<div class="empty">No matches</div>'; return; }
+    results.innerHTML = matches.map(a => `
+      <div class="card" onclick="openArticle('${a.slug}')">
+        <div class="card-title">${esc(a.title)}</div>
+        <div class="card-preview">${esc(a.preview || '')}</div>
+      </div>`).join('');
+  }
+
+  // View entry (raw material)
+  async function viewEntry(id) {
+    try {
+      const entry = await api(`/api/entries/${id}`);
+      const list = document.getElementById('queueList');
+      list.innerHTML = `
+        <div class="article-view">
+          <button class="back-btn" onclick="loadEntries()">&larr; Back to queue</button>
+          <div class="card-meta" style="margin-bottom:12px">
+            <span class="type-icon type-${entry.type}">${typeIcon(entry.type)}</span>
+            <span class="status status-${entry.status}">${entry.status}</span>
+            <span>${entry.type}</span>
+            <span>${timeAgo(entry.created_at)}</span>
+          </div>
+          <div class="md-content">${marked.parse(entry.content || '(no content)')}</div>
+        </div>
+      `;
+    } catch (e) {
+      toast('Failed to load entry', 'error');
+    }
+  }
+
+  // Open wiki article
+  let editingArticle = null;
+
+  async function openArticle(slug) {
+    try {
+      const article = await api(`/api/wiki/${slug}`);
+      viewingArticle = slug;
+      const isInternal = slug.startsWith('internal-');
+      const listId = isInternal ? 'nikiList' : 'wikiList';
+      const backFn = isInternal ? 'viewingArticle=null;renderNikiList()' : 'viewingArticle=null;renderWikiList()';
+      const backLabel = isInternal ? 'Back to Niki' : 'Back to wiki';
+      const list = document.getElementById(listId);
+      const rendered = renderWikiLinks(marked.parse(article.content || ''));
+      const editBtn = isInternal ? `<button class="btn btn-secondary btn-sm" onclick="editArticle('${slug}')" style="margin-left:auto">Edit</button>` : '';
+      list.innerHTML = `
+        <div class="article-view">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <button class="back-btn" onclick="${backFn}" style="margin-bottom:0">&larr; ${backLabel}</button>
+            ${editBtn}
+          </div>
+          <div class="md-content" id="article-content">${rendered}</div>
+        </div>
+      `;
+    } catch (e) {
+      toast('Article not found', 'error');
+    }
+  }
+
+  async function editArticle(slug) {
+    try {
+      const article = await api(`/api/wiki/${slug}`);
+      editingArticle = slug;
+      const isInternal = slug.startsWith('internal-');
+      const listId = isInternal ? 'nikiList' : 'wikiList';
+      const list = document.getElementById(listId);
+      list.innerHTML = `
+        <div class="article-view" style="cursor:default">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <button class="back-btn" onclick="openArticle('${slug}')" style="margin-bottom:0">&larr; Cancel</button>
+            <button class="btn btn-success btn-sm" onclick="saveArticle('${slug}')" style="margin-left:auto">Save</button>
+          </div>
+          <textarea id="article-editor" style="width:100%;min-height:60vh;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;font-family:monospace;font-size:13px;color:var(--text);resize:vertical;outline:none;line-height:1.6">${article.content.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+        </div>
+      `;
+      document.getElementById('article-editor').focus();
+    } catch (e) {
+      toast('Failed to load article for editing', 'error');
+    }
+  }
+
+  async function saveArticle(slug) {
+    const content = document.getElementById('article-editor').value;
+    try {
+      const res = await fetch(`/api/wiki/${slug}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ content })
+      });
+      if (!res.ok) throw new Error('Save failed');
+      toast('Saved');
+      editingArticle = null;
+      await loadArticles();
+      openArticle(slug);
+    } catch (e) {
+      toast('Failed to save', 'error');
+    }
+  }
+
+  function openArticleByTitle(title) {
+    const slug = slugify(title);
+    const match = articles.find(a => a.slug === slug || a.title.toLowerCase() === title.toLowerCase());
+    if (match) {
+      openArticle(match.slug);
+    } else {
+      toast(`Article "${title}" does not exist yet`, 'error');
+    }
+  }
+
+  // Compile
+  async function triggerCompile() {
+    try {
+      await api('/api/compile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      toast('Compilation started...', 'success');
+      startPolling();
+    } catch (e) {
+      toast('Compile: ' + e.message, 'error');
+    }
+  }
+
+  async function triggerLint() {
+    try {
+      await api('/api/lint', { method: 'POST' });
+      toast('Lint started...', 'success');
+      startPolling();
+    } catch (e) {
+      toast('Lint: ' + e.message, 'error');
+    }
+  }
+
+  // Poll compile status
+  function startPolling() {
+    if (pollInterval) return;
+    pollInterval = setInterval(async () => {
+      try {
+        const status = await api('/api/compile/status');
+        const el = document.getElementById('compileStatus');
+        if (status.running) {
+          el.innerHTML = `<span class="spinner"></span> ${esc(status.progress)}`;
+        } else {
+          el.textContent = status.progress || 'Ready to compile';
+          if (status.last_run) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+            loadEntries();
+            loadArticles();
+          }
+        }
+      } catch (e) {}
+    }, 2000);
+  }
+
+  // Delete
+  async function deleteEntry(id) {
+    try {
+      await api(`/api/entries/${id}`, { method: 'DELETE' });
+      loadEntries();
+    } catch (e) {
+      toast('Delete failed', 'error');
+    }
+  }
+
+  async function deleteArticle(slug) {
+    try {
+      await api(`/api/wiki/${slug}`, { method: 'DELETE' });
+      loadArticles();
+    } catch (e) {
+      toast('Delete failed', 'error');
+    }
+  }
+
+  // Helpers
+  function typeIcon(type) {
+    const icons = { youtube: 'YT', github: 'GH', article: 'WB', file: 'FL', text: 'TX', screenshot: 'SC', arxiv: 'AX', pdf: 'PD' };
+    return icons[type] || '??';
+  }
+
+  function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  }
+
+  function timeAgo(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr + 'Z');
+    const now = new Date();
+    const diff = (now - d) / 1000;
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+    return Math.floor(diff/86400) + 'd ago';
+  }
+
+  function toast(msg, type = 'success') {
+    const container = document.getElementById('toasts');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
+  // Search
+  let searchTimeout = null;
+  function handleSearch(query) {
+    clearTimeout(searchTimeout);
+    const resultsEl = document.getElementById('searchResults');
+    const catBar = document.getElementById('categoryBar');
+    const listEl = document.getElementById('wikiList');
+
+    if (!query || query.length < 2) {
+      resultsEl.style.display = 'none';
+      catBar.style.display = '';
+      listEl.style.display = '';
+      return;
+    }
+
+    searchTimeout = setTimeout(async () => {
+      try {
+        const results = await api(`/api/search?q=${encodeURIComponent(query)}`);
+        catBar.style.display = 'none';
+        listEl.style.display = 'none';
+        resultsEl.style.display = '';
+
+        if (results.length === 0) {
+          resultsEl.innerHTML = '<div class="empty"><p>No results</p></div>';
+          return;
+        }
+
+        resultsEl.innerHTML = results.map(r => `
+          <div class="card" onclick="document.getElementById('searchInput').value='';document.getElementById('searchResults').style.display='none';document.getElementById('categoryBar').style.display='';document.getElementById('wikiList').style.display='';switchTab('wiki');openArticle('${r.slug}');">
+            <div class="card-title">${esc(r.title)}</div>
+            ${r.snippet ? `<div class="card-preview">${esc(r.snippet)}</div>` : ''}
+          </div>
+        `).join('');
+      } catch(e) {}
+    }, 300);
+  }
+
+  // Categories
+  async function loadCategories() {
+    try {
+      categories = await api('/api/categories');
+      renderCategoryBar();
+    } catch(e) {}
+  }
+
+  function renderCategoryBar() {
+    const bar = document.getElementById('categoryBar');
+    const cats = Object.keys(categories).sort();
+    if (cats.length === 0) { bar.innerHTML = ''; return; }
+
+    bar.innerHTML = `<span class="cat-chip ${!activeCategory ? 'active' : ''}" onclick="filterCategory(null)">All</span>` +
+      cats.map(c => `<span class="cat-chip ${activeCategory === c ? 'active' : ''}" onclick="filterCategory('${c.replace(/'/g,"\\'")}')">
+        ${esc(c)}<span class="count">${categories[c].length}</span>
+      </span>`).join('');
+  }
+
+  function filterCategory(cat) {
+    activeCategory = cat;
+    renderCategoryBar();
+    renderWikiList();
+  }
+
+  // Render wiki list (updated with category filter)
+  function renderWikiListOrig() {} // replaced below
+
+  // ---------------------------------------------------------------------------
+  // Research: Multi-source Search
+  // ---------------------------------------------------------------------------
+
+  function getSelectedSources() {
+    const chips = document.querySelectorAll('#sourceChips .cat-chip.active');
+    return Array.from(chips).map(c => c.dataset.src);
+  }
+
+  function toggleSource(el) {
+    el.classList.toggle('active');
+  }
+
+  // Quick search -- returns results inline without ingesting
+  async function runMultiSearch() {
+    const query = document.getElementById('researchQuery').value.trim();
+    if (!query) return;
+    const sources = getSelectedSources();
+    if (sources.length === 0) { toast('Select at least one source', 'error'); return; }
+
+    const resultsEl = document.getElementById('searchResultsMulti');
+    resultsEl.innerHTML = '<div style="padding:16px;text-align:center"><span class="spinner"></span> Searching...</div>';
+
+    const allResults = [];
+
+    // Fire all searches in parallel
+    const promises = [];
+
+    if (sources.includes('youtube')) {
+      promises.push(
+        fetch(`/api/entries`).then(r => r.json()).then(entries => {
+          // For YouTube, use yt-dlp search via a simple approach:
+          // we just show a "use Auto-Ingest for YouTube" note since YT needs yt-dlp
+          return [{ source: 'youtube', title: `Search YouTube for "${query}"`, description: 'Use "Auto-Ingest + Compile" to search, transcribe, and compile YouTube results', url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`, _placeholder: true }];
+        }).catch(() => [])
+      );
+    }
+
+    if (sources.includes('arxiv')) {
+      promises.push(
+        api(`/api/arxiv/papers?limit=15&offset=0&hours=0&q=${encodeURIComponent(query)}`).then(data => {
+          return (data.papers || []).map(p => ({
+            source: 'arxiv',
+            title: p.title,
+            description: p.summary ? p.summary.substring(0, 200) + '...' : '',
+            url: p.url || `https://arxiv.org/abs/${p.id}`,
+            id: p.id,
+            tags: p.tags || [],
+            time: p.time_str || '',
+          }));
+        }).catch(() => [])
+      );
+    }
+
+    if (sources.includes('github')) {
+      promises.push(
+        api(`/api/search/github?q=${encodeURIComponent(query)}`).then(repos => {
+          return repos.map(r => ({
+            source: 'github',
+            title: r.title,
+            description: r.description + (r.stars ? ` | ${r.stars} stars` : '') + (r.language ? ` | ${r.language}` : ''),
+            url: r.url,
+          }));
+        }).catch(() => [])
+      );
+    }
+
+    if (sources.includes('web')) {
+      promises.push(
+        api(`/api/search/web?q=${encodeURIComponent(query)}`).then(results => {
+          return results.map(r => ({
+            source: 'web',
+            title: r.title,
+            description: r.description,
+            url: r.url,
+          }));
+        }).catch(() => [])
+      );
+    }
+
+    const resultArrays = await Promise.all(promises);
+    resultArrays.forEach(arr => allResults.push(...arr));
+
+    if (allResults.length === 0) {
+      resultsEl.innerHTML = '<div class="empty"><p>No results found</p></div>';
+      return;
+    }
+
+    // Auto-ingest top 2 from each source
+    const toIngest = {};
+    allResults.forEach(r => {
+      if (r._placeholder) return;
+      if (!toIngest[r.source]) toIngest[r.source] = [];
+      if (toIngest[r.source].length < 2) toIngest[r.source].push(r);
+    });
+    const autoIngestList = Object.values(toIngest).flat();
+    if (autoIngestList.length > 0) {
+      const statusEl = document.getElementById('researchStatus');
+      statusEl.textContent = `Auto-ingesting top ${autoIngestList.length} results...`;
+      // Ingest in background
+      (async () => {
+        for (const r of autoIngestList) {
+          try {
+            if (r.source === 'arxiv' && r.id) {
+              await api(`/api/arxiv/save/${encodeURIComponent(r.id)}`, { method: 'POST' });
+            } else if (r.url) {
+              await api('/api/submit', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({url: r.url}) });
+            }
+          } catch(e) {}
+        }
+        statusEl.textContent = `Ingested ${autoIngestList.length} results. Compiling...`;
+        try { await api('/api/compile', { method: 'POST' }); } catch(e) {}
+        statusEl.textContent = `Done. ${autoIngestList.length} results ingested and compiling.`;
+        setTimeout(() => { statusEl.textContent = ''; }, 5000);
+      })();
+    }
+
+    resultsEl.innerHTML = allResults.map((r, i) => {
+      const badgeClass = r.source === 'youtube' ? 'yt' : r.source;
+      const badgeLabel = { youtube: 'YT', arxiv: 'arXiv', github: 'GH', web: 'Web' }[r.source] || r.source;
+      const isPlaceholder = r._placeholder;
+      const saveBtn = isPlaceholder
+        ? `<a href="${r.url}" target="_blank" class="save-btn" style="text-decoration:none">Open</a>`
+        : `<button class="save-btn" onclick="saveSearchResult(this, ${i})" data-result='${JSON.stringify(r).replace(/'/g, "&#39;")}'>Save</button>`;
+      const titleLink = r.url ? `<a href="${r.url}" target="_blank">${esc(r.title)}</a>` : esc(r.title);
+      const clickAction = r.source === 'arxiv' && r.id ? ` onclick="viewArxivPaper('${r.id}')"` : '';
+      return `
+        <div class="feed-item"${clickAction} ${r.source === 'arxiv' ? 'style="cursor:pointer"' : ''}>
+          <div class="feed-item-header">
+            <span class="source-badge ${badgeClass}">${badgeLabel}</span>
+            <span class="feed-item-title">${titleLink}</span>
+            ${saveBtn}
+          </div>
+          ${r.description ? `<div class="feed-item-desc">${esc(r.description)}</div>` : ''}
+          ${r.tags && r.tags.length ? `<div class="arxiv-tags" style="margin-top:4px">${r.tags.map(t => `<span class="arxiv-tag">${esc(t)}</span>`).join('')}</div>` : ''}
+          ${r.time ? `<div class="feed-item-meta"><span>${r.time}</span></div>` : ''}
+        </div>`;
+    }).join('');
+  }
+
+  async function saveSearchResult(btn, index) {
+    const data = JSON.parse(btn.dataset.result);
+    btn.disabled = true;
+    btn.textContent = '...';
+    try {
+      if (data.source === 'arxiv' && data.id) {
+        await api(`/api/feed/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source: 'arxiv', id: data.id, title: data.title })
+        });
+      } else {
+        await api(`/api/feed/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source: data.source, url: data.url, title: data.title })
+        });
+      }
+      btn.textContent = 'Saved';
+      btn.style.color = 'var(--success)';
+      toast(`Saved "${data.title.substring(0, 50)}" to queue`, 'success');
+    } catch (e) {
+      btn.textContent = 'Error';
+      btn.style.color = 'var(--error)';
+      toast('Save failed: ' + e.message, 'error');
+    }
+  }
+
+  // Auto-Ingest + Compile (extended version of old startResearch)
+  async function startResearch() {
+    const query = document.getElementById('researchQuery').value.trim();
+    const count = parseInt(document.getElementById('researchCount').value) || 10;
+    const sources = getSelectedSources();
+    if (!query) return;
+    if (sources.length === 0) { toast('Select at least one source', 'error'); return; }
+
+    try {
+      await api('/api/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, max_results: count, sources })
+      });
+      toast('Research started! Ingesting from: ' + sources.join(', '), 'success');
+      pollResearch();
+    } catch(e) {
+      toast('Research failed: ' + e.message, 'error');
+    }
+  }
+
+  function pollResearch() {
+    startPolling();
+    const statusEl = document.getElementById('researchStatus');
+    const interval = setInterval(async () => {
+      try {
+        const status = await api('/api/compile/status');
+        if (status.running) {
+          statusEl.innerHTML = `<span class="spinner"></span> ${esc(status.progress)}`;
+        } else {
+          statusEl.textContent = status.progress || 'Done';
+          clearInterval(interval);
+          loadArticles();
+          loadCategories();
+        }
+      } catch(e) {}
+    }, 3000);
+  }
+
+  document.getElementById('researchQuery').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runMultiSearch();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Feed (auto-fetched content from arXiv, HN, GitHub)
+  // ---------------------------------------------------------------------------
+
+  let feedItems = [];
+  let feedFilter = 'all';
+
+  async function loadFeed() {
+    const list = document.getElementById('feedList');
+    if (feedItems.length === 0) {
+      list.innerHTML = '<div style="padding:16px;text-align:center"><span class="spinner"></span> Loading feed...</div>';
+    }
+    try {
+      const data = await api('/api/feed?limit=50');
+      feedItems = data.items || [];
+      renderFeed();
+    } catch (e) {
+      list.innerHTML = '<div class="empty"><p>Failed to load feed</p></div>';
+    }
+  }
+
+  async function refreshFeed() {
+    const list = document.getElementById('feedList');
+    list.innerHTML = '<div style="padding:16px;text-align:center"><span class="spinner"></span> Refreshing feed...</div>';
+    try {
+      await api('/api/feed/refresh', { method: 'POST' });
+      const data = await api('/api/feed?limit=50');
+      feedItems = data.items || [];
+      renderFeed();
+      toast('Feed refreshed', 'success');
+    } catch (e) {
+      toast('Refresh failed: ' + e.message, 'error');
+      renderFeed();
+    }
+  }
+
+  function filterFeed(filter, el) {
+    feedFilter = filter;
+    document.querySelectorAll('#feedSourceFilter .cat-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    renderFeed();
+  }
+
+  function renderFeed() {
+    const list = document.getElementById('feedList');
+    let items = feedItems;
+    if (feedFilter !== 'all') {
+      items = items.filter(i => i.source === feedFilter);
+    }
+
+    if (items.length === 0) {
+      list.innerHTML = '<div class="empty"><p>No feed items. Click Refresh to fetch latest content.</p></div>';
+      return;
+    }
+
+    list.innerHTML = items.map((item, i) => {
+      const badgeClass = item.source === 'hn' ? 'hn' : item.source;
+      const badgeLabel = { arxiv: 'arXiv', github: 'GH', web: 'Web' }[item.source] || item.source;
+      const clickAction = item.source === 'arxiv' && item.id ? ` onclick="viewArxivPaper('${item.id}')"` : '';
+      const cursorStyle = item.source === 'arxiv' ? 'cursor:pointer;' : '';
+      return `
+        <div class="feed-item" style="${cursorStyle}"${clickAction}>
+          <div class="feed-item-header">
+            <span class="source-badge ${badgeClass}">${badgeLabel}</span>
+            <span class="feed-item-title"><a href="${item.url}" target="_blank" onclick="event.stopPropagation()">${esc(item.title)}</a></span>
+            <button class="save-btn" onclick="event.stopPropagation();saveFeedItem(this, ${i})" data-item='${JSON.stringify(item).replace(/'/g, "&#39;")}'>Save</button>
+          </div>
+          ${item.description ? `<div class="feed-item-desc">${esc(item.description)}</div>` : ''}
+          <div class="feed-item-meta">
+            ${item.time ? `<span>${item.time}</span>` : ''}
+            ${item.stars ? `<span>${item.stars} stars</span>` : ''}
+            ${item.tags && item.tags.length ? item.tags.map(t => `<span class="arxiv-tag">${esc(t)}</span>`).join('') : ''}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  async function saveFeedItem(btn, index) {
+    const item = JSON.parse(btn.dataset.item);
+    btn.disabled = true;
+    btn.textContent = '...';
+    try {
+      await api('/api/feed/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: item.source,
+          url: item.url,
+          id: item.id || '',
+          title: item.title,
+        })
+      });
+      btn.textContent = 'Saved';
+      btn.style.color = 'var(--success)';
+      toast(`Saved "${item.title.substring(0, 50)}" to queue`, 'success');
+    } catch (e) {
+      btn.textContent = 'Error';
+      btn.style.color = 'var(--error)';
+      toast('Save failed: ' + e.message, 'error');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // arXiv paper detail view (used from both search results and feed)
+  // ---------------------------------------------------------------------------
+
+  async function viewArxivPaper(id) {
+    try {
+      const paper = await api(`/api/arxiv/paper/${id}`);
+      const detailEl = document.getElementById('arxivDetailView');
+      detailEl.style.display = '';
+
+      detailEl.innerHTML = `
+        <div class="article-view" style="cursor:default;margin-top:16px">
+          <button class="back-btn" onclick="document.getElementById('arxivDetailView').style.display='none'">&larr; Back</button>
+          <h2 style="margin-bottom:8px">${esc(paper.title)}</h2>
+          <div class="arxiv-authors" style="margin-bottom:8px;white-space:normal">${esc(paper.authors.join(', '))}</div>
+          <div class="arxiv-tags" style="margin-bottom:12px">
+            ${paper.tags.map(t => `<span class="arxiv-tag">${esc(t)}</span>`).join('')}
+            <span style="font-size:11px;color:var(--text-secondary);margin-left:8px">${paper.time_str}</span>
+          </div>
+          <div class="arxiv-actions" style="margin-bottom:16px">
+            <a href="${paper.url}" target="_blank">arXiv</a>
+            ${paper.pdf ? `<a href="${paper.pdf}" target="_blank">PDF</a>` : ''}
+            <button class="btn btn-success btn-sm" onclick="saveArxivToWiki('${paper.id}')">Save to Wiki</button>
+          </div>
+          <div class="md-content">
+            <h3>Abstract</h3>
+            <p>${esc(paper.summary)}</p>
+          </div>
+          <div id="arxivSimilar"><div style="margin-top:16px"><b>Similar papers:</b> <span class="spinner"></span></div></div>
+        </div>
+      `;
+
+      // Scroll to detail view
+      detailEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // Load similar papers
+      try {
+        const similar = await api(`/api/arxiv/similar/${id}?n=8`);
+        const simEl = document.getElementById('arxivSimilar');
+        if (similar.length > 0) {
+          simEl.innerHTML = '<div style="margin-top:16px"><b>Similar papers:</b><br>' +
+            similar.map(s => `<span class="sim-card" onclick="viewArxivPaper('${s.id}')">${esc(s.title.substring(0, 60))}${s.title.length > 60 ? '...' : ''} <span style="opacity:0.5">${(s.similarity * 100).toFixed(0)}%</span></span>`).join('') +
+            '</div>';
+        } else {
+          simEl.innerHTML = '';
+        }
+      } catch (e) {
+        document.getElementById('arxivSimilar').innerHTML = '';
+      }
+    } catch (e) {
+      toast('Failed to load paper', 'error');
+    }
+  }
+
+  async function saveArxivToWiki(id) {
+    try {
+      const result = await api(`/api/arxiv/save/${id}`, { method: 'POST' });
+      toast(`Saved "${result.title}" to queue. Compile to generate wiki article.`, 'success');
+    } catch (e) {
+      toast('Save failed: ' + e.message, 'error');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Council (group chat with AI agents)
+  // ---------------------------------------------------------------------------
+
+  let councilMessages = [];
+  let councilSSE = null;
+  let councilSending = false;
+  let councilViewingThread = null;
+  let councilSessions = [];
+
+  // Session color map - deterministic color per session name
+  const SESSION_COLORS = {
+    'sterminal': '#4ade80', 'sterm': '#38bdf8', 'sterm1': '#818cf8',
+    'swiki': '#fbbf24', 'splaybook': '#f472b6', 'senvitae': '#a78bfa',
+    'scredit': '#fb923c', 'smoped': '#34d399', 'sjob': '#60a5fa',
+    'strading': '#e879f9', 'supwork': '#2dd4bf', 'Atlas': '#e06c75',
+    'Spark': '#5b8def', 'Niki': '#5dbb5d', 'System': '#888'
+  };
+  function getSessionColor(name) {
+    if (SESSION_COLORS[name]) return SESSION_COLORS[name];
+    let h = 0; for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+    return `hsl(${h % 360}, 60%, 65%)`;
+  }
+
+  async function loadCouncilSessions() {
+    try {
+      const data = await api('/api/council/sessions');
+      councilSessions = data.sessions || [];
+      const bar = document.getElementById('councilSessionBar');
+      bar.innerHTML = '<span style="font-size:11px;color:#666">Sessions:</span> ' +
+        '<span class="council-session-chip" style="border:1px solid #fff3;color:#fff;font-weight:700" onclick="insertSessionMention(\'all\')" title="Broadcast to all sessions">@all</span> ' +
+        councilSessions.map(s => {
+          const color = getSessionColor(s);
+          const display = s.startsWith('s') && s.length > 1 && s[1] === s[1].toLowerCase() ? s.slice(1) : s;
+          return `<span class="council-session-chip" style="border:1px solid ${color}33;color:${color}" onclick="insertSessionMention('${s}')" title="${s}">${display}</span>`;
+        }).join('');
+    } catch {}
+  }
+
+  function insertSessionMention(session) {
+    const input = document.getElementById('councilInput');
+    const val = input.value;
+    // If @all, replace everything
+    if (session === 'all') { input.value = '@all '; input.focus(); return; }
+    // If already has this mention, don't duplicate
+    if (val.includes(`@${session}`)) { input.focus(); return; }
+    // Append to existing mentions at the start
+    const mentionMatch = val.match(/^((?:@\w+\s*)+)(.*)/);
+    if (mentionMatch) {
+      input.value = mentionMatch[1] + `@${session} ` + mentionMatch[2];
+    } else {
+      input.value = `@${session} ` + val;
+    }
+    input.focus();
+  }
+
+  async function loadCouncilMessages() {
+    const feed = document.getElementById('councilFeed');
+    try {
+      if (councilViewingThread) {
+        const data = await api('/api/council/thread/' + councilViewingThread);
+        councilMessages = [data.post, ...data.replies];
+      } else {
+        councilMessages = await api('/api/council');
+      }
+      renderCouncilFeed();
+    } catch (e) {
+      feed.innerHTML = '<div class="empty"><p>Failed to load messages</p></div>';
+    }
+  }
+
+  function isCouncilNearBottom() {
+    const feed = document.getElementById('councilFeed');
+    return feed.scrollHeight - feed.scrollTop - feed.clientHeight < 60;
+  }
+
+  function renderCouncilFeed() {
+    const feed = document.getElementById('councilFeed');
+    if (councilMessages.length === 0) {
+      feed.innerHTML = '<div class="empty" style="margin:auto"><h3>Agent Group Chat</h3><p>Message everyone, or @session to target a specific agent.<br>Research loops between sessions appear here automatically.</p></div>';
+      return;
+    }
+    const wasAtBottom = isCouncilNearBottom();
+    if (councilViewingThread) {
+      feed.innerHTML = '<div style="margin-bottom:8px"><button class="btn btn-secondary btn-sm" onclick="exitCouncilThread()">&larr; Back</button></div>' +
+        councilMessages.map(m => renderCouncilMessage(m, false)).join('');
+    } else {
+      feed.innerHTML = councilMessages.map(m => renderCouncilMessage(m, true)).join('');
+    }
+    if (wasAtBottom) feed.scrollTop = feed.scrollHeight;
+  }
+
+  function renderCouncilMessage(m, showReplyCount) {
+    const color = getSessionColor(m.author);
+    const isSession = m.session || (m.source && m.source !== 'chat');
+    const authorClass = m.author === 'System' ? 'system' : (isSession ? 'session' : m.author.toLowerCase());
+    const ts = m.created_at ? formatCouncilTime(m.created_at) : '';
+    const replyInfo = (showReplyCount && m.reply_count > 0) ? `<span style="font-size:11px;color:var(--accent);cursor:pointer" onclick="event.stopPropagation();openCouncilThread(${m.id})">${m.reply_count} replies</span>` : '';
+    const clickThread = (showReplyCount && !councilViewingThread) ? ` onclick="openCouncilThread(${m.id})" style="cursor:pointer"` : '';
+    const sourceBadge = m.source && m.source !== 'chat' ? `<span class="council-source-badge ${m.source}">${m.source === 'research_loop' ? 'research' : m.source}</span>` : '';
+    const loopBadge = m.loop_id ? `<span class="council-source-badge" style="background:#1a1a2a;color:#818cf8" title="${esc(m.loop_id)}">loop</span>` : '';
+    return `<div class="council-msg-wrap"${clickThread}>
+      <div class="council-msg-header">
+        <span class="council-msg-author ${authorClass}" style="color:${color}">${esc(m.author.startsWith('s') && m.author.length > 1 && m.author[1] === m.author[1].toLowerCase() && m.author !== 'system' ? m.author.slice(1) : m.author)}</span>
+        ${sourceBadge}${loopBadge}
+        <span class="council-msg-time">${ts}</span>
+        ${replyInfo}
+      </div>
+      <div class="council-msg">${esc(m.content)}</div>
+    </div>`;
+  }
+
+  function openCouncilThread(threadId) {
+    councilViewingThread = threadId;
+    loadCouncilMessages();
+  }
+
+  function exitCouncilThread() {
+    councilViewingThread = null;
+    loadCouncilMessages();
+  }
+
+  function formatCouncilTime(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'));
+    const now = new Date();
+    const diff = (now - d) / 1000;
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return d.toLocaleDateString();
+  }
+
+  async function sendCouncilMessage() {
+    if (councilSending) return;
+    const input = document.getElementById('councilInput');
+    const content = input.value.trim();
+    if (!content) return;
+
+    councilSending = true;
+    const btn = document.getElementById('councilSend');
+    btn.disabled = true;
+    input.value = '';
+
+    try {
+      await api('/api/council', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, thread_id: councilViewingThread || undefined })
+      });
+    } catch (e) {
+      toast('Failed to send: ' + e.message, 'error');
+      input.value = content;
+    } finally {
+      councilSending = false;
+      btn.disabled = false;
+    }
+  }
+
+  // @mention autocomplete
+  let mentionIdx = -1;
+  const sessionColors = {'sterm':'#4ade80','sterm1':'#4ade80','sterminal':'#f59e0b','sjobs':'#60a5fa','senvitae':'#f472b6','scredit':'#fb923c','smoped':'#a78bfa','splaybook':'#34d399','swiki':'#818cf8'};
+
+  function getMentionQuery(input) {
+    const val = input.value.substring(0, input.selectionStart);
+    const match = val.match(/@(\w*)$/);
+    return match ? match[1].toLowerCase() : null;
+  }
+
+  function showMentionDropdown(query) {
+    const dd = document.getElementById('mentionDropdown');
+    const all = ['all', ...councilSessions];
+    const filtered = query === '' ? all : all.filter(s => s.toLowerCase().includes(query));
+    if (filtered.length === 0) { dd.style.display = 'none'; return; }
+    mentionIdx = 0;
+    dd.innerHTML = filtered.map((s, i) => {
+      const color = sessionColors[s] || '#888';
+      const label = s === 'all' ? '@all (broadcast)' : '@' + s;
+      return `<div class="mention-item${i===0?' selected':''}" data-session="${s}" onmousedown="completeMention('${s}')"><span class="mention-dot" style="background:${color}"></span>${label}</div>`;
+    }).join('');
+    dd.style.display = 'block';
+  }
+
+  function hideMentionDropdown() {
+    document.getElementById('mentionDropdown').style.display = 'none';
+    mentionIdx = -1;
+  }
+
+  function completeMention(session) {
+    const input = document.getElementById('councilInput');
+    const pos = input.selectionStart;
+    const val = input.value;
+    const before = val.substring(0, pos);
+    const atIdx = before.lastIndexOf('@');
+    input.value = before.substring(0, atIdx) + '@' + session + ' ' + val.substring(pos);
+    input.selectionStart = input.selectionEnd = atIdx + session.length + 2;
+    hideMentionDropdown();
+    input.focus();
+  }
+
+  document.getElementById('councilInput').addEventListener('input', e => {
+    const q = getMentionQuery(e.target);
+    if (q !== null) showMentionDropdown(q);
+    else hideMentionDropdown();
+  });
+
+  document.getElementById('councilInput').addEventListener('keydown', e => {
+    const dd = document.getElementById('mentionDropdown');
+    if (dd.style.display === 'block') {
+      const items = dd.querySelectorAll('.mention-item');
+      if (e.key === 'ArrowDown') { e.preventDefault(); mentionIdx = Math.min(mentionIdx+1, items.length-1); items.forEach((el,i) => el.classList.toggle('selected', i===mentionIdx)); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); mentionIdx = Math.max(mentionIdx-1, 0); items.forEach((el,i) => el.classList.toggle('selected', i===mentionIdx)); return; }
+      if (e.key === 'Tab' || (e.key === 'Enter' && mentionIdx >= 0)) { e.preventDefault(); const sel = items[mentionIdx]; if (sel) completeMention(sel.dataset.session); return; }
+      if (e.key === 'Escape') { hideMentionDropdown(); return; }
+    }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendCouncilMessage();
+    }
+  });
+
+  document.getElementById('councilInput').addEventListener('blur', () => {
+    setTimeout(hideMentionDropdown, 150);
+  });
+
+  async function clearCouncil() {
+    try {
+      await api('/api/council/clear', { method: 'POST' });
+      councilMessages = [];
+      renderCouncilFeed();
+      document.getElementById('councilTyping').innerHTML = '';
+    } catch (e) {
+      toast('Clear failed: ' + e.message, 'error');
+    }
+  }
+
+  function connectCouncilSSE() {
+    if (councilSSE) return;
+    councilSSE = new EventSource('/api/council/stream');
+
+    councilSSE.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'message') {
+          // Add message if not already present
+          const exists = councilMessages.some(m => m.id === data.message.id);
+          if (!exists) {
+            councilMessages.push(data.message);
+            const feed = document.getElementById('councilFeed');
+            // If feed was showing empty state, clear it first
+            if (councilMessages.length === 1) {
+              feed.innerHTML = '';
+            }
+            const wasAtBottom = isCouncilNearBottom();
+            feed.insertAdjacentHTML('beforeend', renderCouncilMessage(data.message));
+            if (wasAtBottom) feed.scrollTop = feed.scrollHeight;
+          }
+          // Clear typing if this message is from the agent that was typing
+          const typingEl = document.getElementById('councilTyping');
+          if (data.message.author !== 'Niki') {
+            typingEl.innerHTML = '';
+          }
+        } else if (data.type === 'typing') {
+          const typingEl = document.getElementById('councilTyping');
+          const colors = { Atlas: '#e06c75', Spark: '#5b8def' };
+          const color = colors[data.agent] || 'var(--text-secondary)';
+          typingEl.innerHTML = `<div class="council-typing"><span style="color:${color};font-weight:600;font-size:12px">${esc(data.agent)}</span> <span style="font-size:12px">is thinking</span> <span class="dots"><span></span><span></span><span></span></span></div>`;
+        } else if (data.type === 'done') {
+          document.getElementById('councilTyping').innerHTML = '';
+        } else if (data.type === 'cleared') {
+          councilMessages = [];
+          renderCouncilFeed();
+          document.getElementById('councilTyping').innerHTML = '';
+        }
+      } catch (e) {}
+    };
+
+    councilSSE.onerror = () => {
+      councilSSE.close();
+      councilSSE = null;
+      // Reconnect after 3s if still on council tab
+      setTimeout(() => {
+        if (currentTab === 'council') connectCouncilSSE();
+      }, 3000);
+    };
+  }
+
+  // Pre-fetch feed in background on page load
+  api('/api/feed?limit=50').then(data => { feedItems = data.items || []; }).catch(() => {});
+
+  // Initial load -- check hash for auto-navigation
+  loadArticles().then(() => {
+    const hash = location.hash.replace('#', '');
+    if (hash.startsWith('niki:')) {
+      const project = decodeURIComponent(hash.slice(5));
+      switchTab('niki');
+      // Match project name to session map (session name -> project)
+      // Try direct match first, then prefix match
+      const internal = articles.filter(a => (a.slug || '').startsWith('internal-'));
+      const groups = {};
+      internal.forEach(a => {
+        const parts = (a.title || '').split('/');
+        const p = parts.length > 1 ? parts[0] : 'other';
+        if (!groups[p]) groups[p] = [];
+        groups[p].push(a);
+      });
+      const match = Object.keys(groups).find(p => p.toLowerCase() === project.toLowerCase())
+        || Object.keys(groups).find(p => p.toLowerCase().startsWith(project.toLowerCase().slice(0,3)));
+      if (match) {
+        activeNikiCategory = match;
+        renderNikiList();
+      }
+    } else {
+      renderNikiList();
+    }
+  });
+  loadEntries();
+  loadCategories();
+</script>
+</body>
+</html>

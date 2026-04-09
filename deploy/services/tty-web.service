@@ -1,0 +1,16 @@
+[Unit]
+Description=Web Terminal (tty-web)
+After=network.target
+
+[Service]
+ExecStartPre=/bin/bash -c 'if ! tmux list-sessions 2>/dev/null; then systemd-run --scope --unit=tmux-persistent tmux new-session -d -s _init && sleep 0.3 && tmux kill-session -t _init 2>/dev/null; fi; true'
+ExecStart=/usr/bin/node /opt/agent-stack/tty-web/server.js
+WorkingDirectory=/opt/agent-stack/tty-web
+Restart=always
+RestartSec=3
+KillMode=process
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

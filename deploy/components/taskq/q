@@ -1,0 +1,57 @@
+#!/bin/bash
+# q -- Task queue CLI. Add tasks, check status, view results.
+# Usage: q "prompt"          -- add a task
+#        q list              -- show queued/running tasks
+#        q status [id]       -- show task status
+#        q results [id]      -- show task result
+#        q cancel [id]       -- cancel a task
+
+STACK_DIR="${AGENT_STACK_DIR:-/opt/agent-stack}"
+DB="$STACK_DIR/taskq/tasks.db"
+
+if [ ! -f "$DB" ]; then
+  echo "Task DB not found at $DB. Run install.sh first." >&2
+  exit 1
+fi
+
+case "${1:-}" in
+  list)
+    sqlite3 -header -column "$DB" "SELECT id, substr(prompt,1,60) as prompt, status, priority, created_at FROM tasks WHERE status IN ('queued','running') ORDER BY priority DESC, created_at ASC;"
+    ;;
+  status)
+    ID="${2:?Usage: q status <id>}"
+    sqlite3 -header -column "$DB" "SELECT * FROM tasks WHERE id=$ID;"
+    ;;
+  results|result)
+    ID="${2:?Usage: q results <id>}"
+    FILE=$(sqlite3 "$DB" "SELECT result_file FROM tasks WHERE id=$ID;")
+    [ -f "$FILE" ] && cat "$FILE" || echo "No result file for task $ID"
+    ;;
+  cancel)
+    ID="${2:?Usage: q cancel <id>}"
+    sqlite3 "$DB" "UPDATE tasks SET status='cancelled' WHERE id=$ID AND status='queued';"
+    echo "Cancelled task $ID"
+    ;;
+  done)
+    sqlite3 -header -column "$DB" "SELECT id, substr(prompt,1,60) as prompt, completed_at FROM tasks WHERE status='done' ORDER BY completed_at DESC LIMIT 10;"
+    ;;
+  help|--help|-h)
+    echo "q -- Task queue CLI"
+    echo "  q \"prompt\"       Add a new task"
+    echo "  q list            Show queued/running tasks"
+    echo "  q done            Show recent completed tasks"
+    echo "  q status <id>     Show task details"
+    echo "  q results <id>    Show task output"
+    echo "  q cancel <id>     Cancel a queued task"
+    ;;
+  "")
+    echo "Usage: q \"your task prompt\" or q list|status|results|cancel|done|help"
+    ;;
+  *)
+    # Default: treat as a new task prompt
+    PROMPT="$*"
+    sqlite3 "$DB" "INSERT INTO tasks (prompt) VALUES ('$(echo "$PROMPT" | sed "s/'/''/g")');"
+    ID=$(sqlite3 "$DB" "SELECT last_insert_rowid();")
+    echo "Queued task #$ID: $PROMPT"
+    ;;
+esac

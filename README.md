@@ -6,7 +6,7 @@ A production AI operations system: web terminal, knowledge base, and meeting cop
 
 - **Terminal** (port 4021) -- Web-based tmux terminal. Access your machine from any browser, including phone.
 - **Wiki** (port 4090) -- Knowledge base with AI-powered article compilation. Ingest URLs, PDFs, files. Search everything.
-- **Copilot** (port 4051) -- Real-time meeting transcription with AI suggestions. Requires Deepgram API key.
+- **Copilot** (port 4051) -- Real-time meeting transcription with AI suggestions. Uses browser Web Speech API (no API key needed).
 
 ## Quick Start
 
@@ -37,17 +37,15 @@ Adds systemd services, opens firewall ports. Access from anywhere.
 - Python 3.10+
 - tmux
 - Claude CLI (`npm install -g @anthropic-ai/claude-code && claude login`)
-- Optional: Deepgram API key for meeting copilot
 
 ## Configuration
 
 Edit `.env` after setup:
 
 ```
-DEEPGRAM_API_KEY=your_key_here
 TTY_PORT=4021
 WIKI_PORT=4090
-COPILOT_PORT=4050
+COPILOT_PORT=4051
 ```
 
 ## Architecture
@@ -60,7 +58,7 @@ Phone/Browser
      |
 [Wiki :4090] --- SQLite FTS5 --- [Article Compiler]
      |
-[Copilot :4051] --- Deepgram --- [AI Suggestions]
+[Copilot :4051] --- Web Speech API --- [AI Suggestions]
 ```
 
 Each service runs independently. Start what you need.
